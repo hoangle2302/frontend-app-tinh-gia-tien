@@ -6,8 +6,8 @@ import flet as ft
 class BOMTable(ft.Container):
     def __init__(self):
         super().__init__()
-        self.padding = 8
-        self.border_radius = 12
+        self.padding = 16
+        self.border_radius = 16
         self.bgcolor = ft.Colors.WHITE
         side = ft.BorderSide(1, ft.Colors.BLUE_GREY_100)
         self.border = ft.Border(top=side, right=side, bottom=side, left=side)
@@ -16,7 +16,7 @@ class BOMTable(ft.Container):
 
         self.content = ft.Column(
             controls=[
-                ft.Text("Bảng kê vật tư (BOM)", size=18, weight=ft.FontWeight.BOLD),
+                ft.Text("Bảng kê vật tư (BOM)", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
                 self.rows_column,
             ]
         )

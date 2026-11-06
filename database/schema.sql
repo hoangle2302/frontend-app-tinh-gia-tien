@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS products (
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ,supplier TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS saved_configurations (
@@ -27,7 +28,13 @@ CREATE TABLE IF NOT EXISTS quote_history (
     customer_name TEXT NOT NULL DEFAULT '',
     payload_json TEXT NOT NULL,
     total REAL NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    quote_number TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'Nh\u00e1p',
+    project_name TEXT NOT NULL DEFAULT '',
+    module_code TEXT NOT NULL DEFAULT '',
+    width_m REAL NOT NULL DEFAULT 0,
+    height_m REAL NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);

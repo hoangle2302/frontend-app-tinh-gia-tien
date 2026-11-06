@@ -19,8 +19,52 @@ class DBManager:
         schema_sql = self.schema_path.read_text(encoding="utf-8")
         with self._connect() as conn:
             conn.executescript(schema_sql)
+            self._migrate_schema(conn)
             conn.commit()
         self.seed_mock_data()
+
+    @staticmethod
+    def _migrate_schema(conn: sqlite3.Connection) -> None:
+        """Bổ sung cột cho các database cũ mà không làm mất dữ liệu."""
+        migrations = {
+            "products": {
+                "supplier": "TEXT NOT NULL DEFAULT ''",
+            },
+            "quote_history": {
+                "quote_number": "TEXT NOT NULL DEFAULT ''",
+                "status": "TEXT NOT NULL DEFAULT 'Nh\\u00e1p'",
+                "project_name": "TEXT NOT NULL DEFAULT ''",
+                "module_code": "TEXT NOT NULL DEFAULT ''",
+                "width_m": "REAL NOT NULL DEFAULT 0",
+                "height_m": "REAL NOT NULL DEFAULT 0",
+            },
+        }
+        for table, columns in migrations.items():
+            existing = {
+                row["name"]
+                for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+            }
+            for name, definition in columns.items():
+                if name not in existing:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+
+        rows = conn.execute(
+            "SELECT id, created_at FROM quote_history WHERE quote_number = '' OR quote_number IS NULL"
+        ).fetchall()
+        for row in rows:
+            year = str(row["created_at"] or "")[:4] or "2026"
+            conn.execute(
+                "UPDATE quote_history SET quote_number = ? WHERE id = ?",
+                (f"BG-{year}-{row['id']:03d}", row["id"]),
+            )
+        conn.execute(
+            "UPDATE quote_history SET status = ? WHERE status = ?",
+            ("Nh\u00e1p", r"Nh\u005cu00e1p"),
+        )
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_quote_history_quote_number "
+            "ON quote_history(quote_number)"
+        )
 
     def seed_mock_data(self) -> None:
         with self._connect() as conn:
@@ -340,25 +384,71 @@ class DBManager:
         return data
 
     def save_quote_history(
-        self, quote_name: str, customer_name: str, payload: Dict[str, Any], total: float
+        self,
+        quote_name: str,
+        customer_name: str,
+        payload: Dict[str, Any],
+        total: float,
+        status: str = "Nh\u00e1p",
     ) -> int:
+        year = str(__import__("datetime").datetime.now().year)
         with self._connect() as conn:
+            next_number = conn.execute(
+                "SELECT COUNT(*) + 1 FROM quote_history WHERE quote_number LIKE ?",
+                (f"BG-{year}-%",),
+            ).fetchone()[0]
+            input_data = payload
             cursor = conn.execute(
                 """
-                INSERT INTO quote_history(quote_name, customer_name, payload_json, total)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO quote_history(
+                    quote_name, customer_name, payload_json, total, quote_number,
+                    status, project_name, module_code, width_m, height_m
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (quote_name, customer_name, json.dumps(payload, ensure_ascii=True), float(total)),
+                (
+                    quote_name,
+                    customer_name,
+                    json.dumps(payload, ensure_ascii=True),
+                    float(total),
+                    f"BG-{year}-{next_number:03d}",
+                    status,
+                    input_data.get("project_name", ""),
+                    input_data.get("module_code", ""),
+                    float(input_data.get("width_m") or 0),
+                    float(input_data.get("height_m") or 0),
+                ),
             )
             conn.commit()
             return int(cursor.lastrowid)
 
-    def list_quote_history(self) -> List[Dict[str, Any]]:
+    def list_quote_history(
+        self, search: str = "", status: str = "all"
+    ) -> List[Dict[str, Any]]:
+        clauses = []
+        params: List[Any] = []
+        if search.strip():
+            clauses.append("(customer_name LIKE ? OR project_name LIKE ? OR quote_number LIKE ?)")
+            term = f"%{search.strip()}%"
+            params.extend([term, term, term])
+        if status != "all":
+            clauses.append("status = ?")
+            params.append(status)
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT * FROM quote_history ORDER BY created_at DESC, id DESC"
+                f"SELECT * FROM quote_history{where} ORDER BY created_at DESC, id DESC",
+                params,
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def update_quote_status(self, history_id: int, status: str) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE quote_history SET status = ? WHERE id = ?",
+                (status, history_id),
+            )
+            conn.commit()
 
     def get_quote_history(self, history_id: int) -> Optional[Dict[str, Any]]:
         with self._connect() as conn:
@@ -381,8 +471,8 @@ class DBManager:
             cursor = conn.execute(
                 """
                 INSERT INTO products
-                    (category, code, name, environment, unit, unit_price, spec_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (category, code, name, environment, unit, unit_price, spec_json, supplier)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     product["category"],
@@ -392,6 +482,7 @@ class DBManager:
                     product.get("unit", "pcs"),
                     float(product.get("unit_price", 0)),
                     json.dumps(product.get("spec_json", {}), ensure_ascii=True),
+                    product.get("supplier", ""),
                 ),
             )
             conn.commit()
