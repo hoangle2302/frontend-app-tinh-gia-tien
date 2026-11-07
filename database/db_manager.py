@@ -488,6 +488,25 @@ class DBManager:
             conn.commit()
             return int(cursor.lastrowid)
 
+    def update_product(self, code: str, product_data: Dict[str, Any]) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE products 
+                SET name = ?, category = ?, unit = ?, unit_price = ?, supplier = ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE code = ?
+                """,
+                (
+                    product_data["name"],
+                    product_data["category"],
+                    product_data.get("unit", "pcs"),
+                    float(product_data.get("unit_price", 0)),
+                    product_data.get("supplier", ""),
+                    code,
+                ),
+            )
+            conn.commit()
+
     def update_product_price(self, code: str, unit_price: float) -> None:
         with self._connect() as conn:
             conn.execute(

@@ -17,49 +17,89 @@ def main(page: ft.Page):
             fit=ft.BoxFit.CONTAIN,
         ),
     )
-    page.title = "Báo giá Màn hình LED"
-    page.window.width = 400
-    page.window.height = 700
-    page.window.min_width = 320
-    page.window.min_height = 480
+    page.title = "Báo giá Màn hình LED - toàn trung"
+    page.window.width = 440
+    page.window.height = 760
+    page.window.min_width = 340
+    page.window.min_height = 500
     page.scroll = ft.ScrollMode.AUTO
     page.theme_mode = ft.ThemeMode.LIGHT
-    page.bgcolor = "#F5F7FA"
+
+    # Material 3 Color Schemes
     page.theme = ft.Theme(
         color_scheme=ft.ColorScheme(
-            primary=ft.Colors.BLUE_800,
-            secondary=ft.Colors.CYAN_600,
-            surface=ft.Colors.WHITE,
+            primary="#006494",
+            on_primary=ft.Colors.WHITE,
+            primary_container="#CBE6FF",
+            on_primary_container="#001E30",
+            secondary="#00687A",
+            on_secondary=ft.Colors.WHITE,
+            secondary_container="#ABEDFF",
+            on_secondary_container="#001F26",
+            tertiary="#525F70",
+            surface="#F8F9FC",
+            on_surface="#191C1E",
+            surface_container="#EDF0F5",
+            surface_container_high="#E7EAEF",
+            outline="#72777F",
+            outline_variant="#C2C7CF",
         ),
-        visual_density=ft.VisualDensity.COMFORTABLE,
+        dropdown_theme=ft.DropdownTheme(
+            menu_style=ft.MenuStyle(
+                bgcolor=ft.Colors.WHITE,
+                elevation=6,
+                shape=ft.RoundedRectangleBorder(radius=12),
+            ),
+        ),
+        visual_density=ft.VisualDensity.STANDARD,
     )
     page.dark_theme = ft.Theme(
         color_scheme=ft.ColorScheme(
-            primary="#42A5F5",
-            secondary="#00B4D8",
-            surface="#17212B",
+            primary="#8FCDFF",
+            on_primary="#00344F",
+            primary_container="#004B70",
+            on_primary_container="#CBE6FF",
+            secondary="#56D6F5",
+            on_secondary="#003640",
+            secondary_container="#004E5C",
+            on_secondary_container="#ABEDFF",
+            tertiary="#BAC8DB",
+            surface="#101418",
+            on_surface="#E0E2E8",
+            surface_container="#1D2024",
+            surface_container_high="#272A2E",
+            outline="#8C9199",
+            outline_variant="#42474E",
         ),
-        visual_density=ft.VisualDensity.COMFORTABLE,
+        dropdown_theme=ft.DropdownTheme(
+            menu_style=ft.MenuStyle(
+                bgcolor="#1D2024",
+                elevation=6,
+                shape=ft.RoundedRectangleBorder(radius=12),
+            ),
+        ),
+        visual_density=ft.VisualDensity.STANDARD,
     )
+    page.bgcolor = "#F8F9FC"
     page.padding = 0
     page.spacing = 0
     page.appbar = ft.AppBar(
         leading=logo_container,
         leading_width=225,
-        toolbar_height=58,
-        bgcolor=ft.Colors.WHITE,
+        toolbar_height=60,
+        bgcolor=ft.Colors.TRANSPARENT,
         elevation=0,
         actions=[
             ft.IconButton(
                 icon=ft.Icons.DARK_MODE_OUTLINED,
-                tooltip="Đổi chế độ sáng/tối",
-                icon_color=ft.Colors.BLUE_800,
-                width=48,
-                height=48,
+                tooltip="Đổi giao diện sáng/tối",
+                icon_color="#006494",
+                width=44,
+                height=44,
                 on_click=lambda e: _toggle_theme(page, e, theme_context["view"]),
                 style=ft.ButtonStyle(
-                    bgcolor="#F5F7FA",
-                    shape=ft.RoundedRectangleBorder(radius=12),
+                    bgcolor="#EDF0F5",
+                    shape=ft.CircleBorder(),
                     padding=0,
                 ),
             ),
@@ -91,12 +131,11 @@ def _toggle_theme(page: ft.Page, e, view=None):
         if is_dark
         else ft.ThemeMode.LIGHT
     )
-    page.bgcolor = "#17212B" if is_dark else "#F5F7FA"
-    page.appbar.bgcolor = "#17212B" if is_dark else ft.Colors.WHITE
-    e.control.icon_color = "#42A5F5" if is_dark else ft.Colors.BLUE_800
+    page.bgcolor = "#101418" if is_dark else "#F8F9FC"
+    e.control.icon_color = "#8FCDFF" if is_dark else "#006494"
     e.control.style = ft.ButtonStyle(
-        bgcolor="#243442" if is_dark else "#F5F7FA",
-        shape=ft.RoundedRectangleBorder(radius=12),
+        bgcolor="#1D2024" if is_dark else "#EDF0F5",
+        shape=ft.CircleBorder(),
         padding=0,
     )
     e.control.icon = (

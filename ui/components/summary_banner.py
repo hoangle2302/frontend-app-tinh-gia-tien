@@ -6,71 +6,131 @@ import flet as ft
 class SummaryBanner(ft.Container):
     def __init__(self):
         super().__init__()
-        self.padding = 16
-        self.border_radius = 16
-        self.bgcolor = ft.Colors.WHITE
-        self.border = None
+        self.padding = ft.Padding(0, 0, 0, 0)
+        self.bgcolor = ft.Colors.TRANSPARENT
 
-        self.size_text = ft.Text("-", size=16, weight=ft.FontWeight.BOLD)
-        self.res_text = ft.Text("-", size=16, weight=ft.FontWeight.BOLD)
-        self.refresh_text = ft.Text("-", size=16, weight=ft.FontWeight.BOLD)
-        self.module_text = ft.Text("-", size=16, weight=ft.FontWeight.BOLD)
-        self.power_text = ft.Text("-", size=16, weight=ft.FontWeight.BOLD)
-        self.card_text = ft.Text("-", size=16, weight=ft.FontWeight.BOLD)
-        self.processor_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD)
-        self.area_text = ft.Text("-", size=16, weight=ft.FontWeight.BOLD)
+        self.size_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True)
+        self.res_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True)
+        self.refresh_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True)
+        self.module_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True)
+        self.power_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True)
+        self.card_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True)
+        self.processor_text = ft.Text("-", size=13, weight=ft.FontWeight.W_500, color="#191C1E")
+        self.area_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True)
         self.badge = ft.Container(
-            content=ft.Text("Lệch kích thước > 5%", color=ft.Colors.WHITE, size=12),
-            padding=ft.Padding(10, 6, 10, 6),
-            border_radius=999,
-            bgcolor=ft.Colors.ORANGE,
+            content=ft.Row(
+                spacing=6,
+                controls=[
+                    ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, size=16, color="#BA1A1A"),
+                    ft.Text("Lệch kích thước > 5%", color="#BA1A1A", size=12, weight=ft.FontWeight.W_500),
+                ],
+            ),
+            padding=ft.Padding(10, 6, 12, 6),
+            border_radius=12,
+            bgcolor="#FFDAD6",
             visible=False,
         )
-        self.badge.content.value = "Lệch kích thước > 5%"
 
-        self.content = ft.Column(
-            spacing=8,
-            controls=[
-                ft.Text("Tổng quan màn hình", size=19, weight=ft.FontWeight.BOLD, color="#1A1A1A"),
-                ft.Row(
-                    wrap=True,
-                    spacing=8,
+        self.content = ft.Card(
+            elevation=0,
+            bgcolor=ft.Colors.WHITE,
+            shape=ft.RoundedRectangleBorder(
+                radius=16,
+                side=ft.BorderSide(width=1, color="#E0E2EC"),
+            ),
+            content=ft.Container(
+                padding=16,
+                content=ft.Column(
+                    spacing=10,
                     controls=[
-                        self._metric_card("Kích thước", self.size_text, ft.Colors.BLUE_50),
-                        self._metric_card("Độ phân giải", self.res_text, ft.Colors.TEAL_50),
-                        self._metric_card("Tần số quét", self.refresh_text, ft.Colors.INDIGO_50),
-                        self._metric_card("Số module", self.module_text, ft.Colors.ORANGE_50),
-                        self._metric_card("Số nguồn", self.power_text, ft.Colors.PURPLE_50),
-                        self._metric_card("Receiving card", self.card_text, ft.Colors.GREEN_50),
-                        self._metric_card("Diện tích", self.area_text, ft.Colors.YELLOW_50),
+                        ft.Row(
+                            spacing=8,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                ft.Container(
+                                    width=4,
+                                    height=16,
+                                    bgcolor="#006494",
+                                    border_radius=2,
+                                ),
+                                ft.Text("Thông số kỹ thuật", size=15, weight=ft.FontWeight.BOLD, color="#191C1E"),
+                            ],
+                        ),
+                        ft.Row(
+                            spacing=8,
+                            controls=[
+                                self._metric_card("Kích thước", self.size_text, ft.Icons.ASPECT_RATIO_OUTLINED),
+                                self._metric_card("Độ phân giải", self.res_text, ft.Icons.GRID_VIEW_OUTLINED),
+                            ],
+                        ),
+                        ft.Row(
+                            spacing=8,
+                            controls=[
+                                self._metric_card("Tần số quét", self.refresh_text, ft.Icons.SPEED_OUTLINED),
+                                self._metric_card("Số module", self.module_text, ft.Icons.VIEW_MODULE_OUTLINED),
+                            ],
+                        ),
+                        ft.Row(
+                            spacing=8,
+                            controls=[
+                                self._metric_card("Số nguồn", self.power_text, ft.Icons.POWER_OUTLINED),
+                                self._metric_card("Card thu", self.card_text, ft.Icons.MEMORY_OUTLINED),
+                            ],
+                        ),
+                        ft.Row(
+                            spacing=8,
+                            controls=[
+                                self._metric_card("Diện tích", self.area_text, ft.Icons.SQUARE_FOOT_OUTLINED),
+                                ft.Container(
+                                    expand=True,
+                                    padding=ft.Padding(12, 10, 12, 10),
+                                    border_radius=12,
+                                    bgcolor="#EDF0F5",
+                                    content=ft.Column(
+                                        alignment=ft.MainAxisAlignment.CENTER,
+                                        spacing=4,
+                                        controls=[
+                                            ft.Row(
+                                                spacing=4,
+                                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                                controls=[
+                                                    ft.Icon(ft.Icons.DEVELOPER_BOARD_OUTLINED, size=15, color="#006494"),
+                                                    ft.Text("Bộ xử lý", size=12, color="#006494", weight=ft.FontWeight.BOLD),
+                                                ],
+                                            ),
+                                            self.processor_text,
+                                        ],
+                                    ),
+                                ),
+                            ],
+                        ),
+                        self.badge,
                     ],
                 ),
-                ft.Container(
-                    padding=ft.Padding(10, 8, 10, 8),
-                    border_radius=10,
-                    bgcolor=ft.Colors.BLUE_GREY_50,
-                    content=ft.Row(
-                        wrap=True,
-                        controls=[
-                            ft.Text("Bộ xử lý: ", weight=ft.FontWeight.BOLD),
-                            self.processor_text,
-                        ],
-                    ),
-                ),
-                self.badge,
-            ],
+            ),
         )
 
     @staticmethod
-    def _metric_card(label: str, value: ft.Text, color: str) -> ft.Container:
+    def _metric_card(label: str, value: ft.Text, icon: str = None) -> ft.Container:
         return ft.Container(
-            width=140,
-            padding=10,
-            border_radius=10,
-            bgcolor=color,
+            expand=True,
+            padding=ft.Padding(12, 10, 12, 10),
+            border_radius=12,
+            bgcolor="#F0F4F8",
             content=ft.Column(
-                spacing=3,
-                controls=[ft.Text(label, size=11, color=ft.Colors.BLUE_GREY_700), value],
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=4,
+                controls=[
+                    ft.Row(
+                        spacing=4,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        controls=[
+                            ft.Icon(icon, size=15, color="#72777F") if icon else ft.Container(),
+                            ft.Text(label, size=12, color="#72777F", weight=ft.FontWeight.W_500),
+                        ],
+                    ),
+                    value,
+                ],
             ),
         )
 

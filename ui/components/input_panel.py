@@ -4,8 +4,8 @@ import flet as ft
 
 
 class InputPanel(ft.Container):
-    BRAND_BLUE = "#007BFF"
-    BRAND_CYAN = "#00AEEF"
+    PRIMARY_COLOR = "#006494"
+    SECONDARY_COLOR = "#00687A"
 
     def __init__(
         self,
@@ -22,10 +22,8 @@ class InputPanel(ft.Container):
         self.on_save = on_save
         self.on_load_preset = on_load_preset
 
-        self.padding = 18
-        self.border_radius = 20
-        self.bgcolor = ft.Colors.WHITE
-        self.border = None
+        self.padding = ft.Padding(4, 4, 4, 12)
+        self.bgcolor = ft.Colors.TRANSPARENT
 
         self.preset_dropdown = ft.Dropdown(
             label="Cấu hình mẫu",
@@ -117,6 +115,7 @@ class InputPanel(ft.Container):
         self.profit_input = ft.TextField(
             label="Lợi nhuận (%)",
             value="20",
+            expand=True,
             keyboard_type=ft.KeyboardType.NUMBER,
             prefix_icon=ft.Icons.TRENDING_UP,
             **self._field_style(),
@@ -125,6 +124,7 @@ class InputPanel(ft.Container):
         self.vat_input = ft.TextField(
             label="VAT (%)",
             value="8",
+            expand=True,
             keyboard_type=ft.KeyboardType.NUMBER,
             prefix_icon=ft.Icons.RECEIPT_LONG,
             **self._field_style(),
@@ -169,15 +169,15 @@ class InputPanel(ft.Container):
                     controls=[
                         ft.Container(
                             width=4,
-                            height=28,
-                            bgcolor=ft.Colors.CYAN_600,
-                            border_radius=4,
+                            height=24,
+                            bgcolor="#006494",
+                            border_radius=2,
                         ),
                         ft.Column(
-                            spacing=0,
+                            spacing=1,
                             controls=[
-                                ft.Text("Tạo báo giá", size=22, weight=ft.FontWeight.BOLD, color="#1A1A1A"),
-                                ft.Text("Nhập thông tin để bắt đầu", size=12, color=ft.Colors.BLUE_GREY_600),
+                                ft.Text("Tạo báo giá", size=20, weight=ft.FontWeight.BOLD, color="#191C1E"),
+                                ft.Text("Nhập thông số màn hình để tạo dự toán", size=12, color="#72777F"),
                             ],
                         ),
                     ],
@@ -217,38 +217,43 @@ class InputPanel(ft.Container):
                         ft.OutlinedButton(
                             "Thêm vật tư",
                             icon=ft.Icons.ADD,
+                            style=ft.ButtonStyle(
+                                shape=ft.RoundedRectangleBorder(radius=20),
+                            ),
                             on_click=self._add_additional_item,
                         ),
                     ],
                 ),
-                ft.Divider(),
+                ft.Divider(color="#E0E2EC", height=1),
                 ft.Row(
                     spacing=8,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     controls=[
-                        ft.OutlinedButton(
+                        ft.FilledButton(
                             "Xuất báo giá",
-                            icon=ft.Icons.ARROW_FORWARD,
-                            width=100,
-                            height=58,
+                            icon=ft.Icons.PICTURE_AS_PDF_OUTLINED,
+                            expand=True,
+                            height=44,
                             on_click=on_export_pdf,
-                            style=self._secondary_button_style(),
+                            style=self._primary_button_style(),
                         ),
                         ft.OutlinedButton(
-                            "Tải Excel",
+                            "Excel",
                             icon=ft.Icons.TABLE_VIEW,
-                            width=100,
-                            height=58,
+                            height=44,
                             on_click=on_export_excel,
                             style=self._secondary_button_style(),
                         ),
-                        ft.OutlinedButton(
-                            "Lưu cấu hình",
-                            icon=ft.Icons.SAVE,
-                            width=100,
-                            height=58,
+                        ft.IconButton(
+                            icon=ft.Icons.SAVE_OUTLINED,
+                            tooltip="Lưu cấu hình",
+                            width=44,
+                            height=44,
                             on_click=on_save,
-                            style=self._secondary_button_style(),
+                            style=ft.ButtonStyle(
+                                side=ft.BorderSide(1, "#C2C7CF"),
+                                shape=ft.CircleBorder(),
+                            ),
                         ),
                     ],
                 ),
@@ -259,62 +264,89 @@ class InputPanel(ft.Container):
     def _field_style(cls):
         return {
             "border": cls._input_border(),
-            "bgcolor": ft.Colors.WHITE,
-            "cursor_color": cls.BRAND_BLUE,
-            "label_style": ft.TextStyle(color="#6B7280"),
+            "bgcolor": ft.Colors.TRANSPARENT,
+            "cursor_color": cls.PRIMARY_COLOR,
+            "label_style": ft.TextStyle(size=13, weight=ft.FontWeight.W_500),
+            "dense": True,
         }
 
     @classmethod
     def _dropdown_style(cls):
         return {
             "border": cls._input_border(),
-            "bgcolor": ft.Colors.WHITE,
-            "label_style": ft.TextStyle(color="#6B7280"),
+            "bgcolor": ft.Colors.TRANSPARENT,
+            "label_style": ft.TextStyle(size=13, weight=ft.FontWeight.W_500),
+            "dense": True,
+            "menu_style": ft.MenuStyle(
+                bgcolor=ft.Colors.WHITE,
+                elevation=6,
+                shape=ft.RoundedRectangleBorder(radius=12),
+            ),
         }
 
     @classmethod
-    def _input_border(cls, default_color="#E0E0E0"):
+    def _input_border(cls, default_color="#C2C7CF"):
         return {
             ft.ControlState.DEFAULT: ft.OutlineInputBorder(
-                border_radius=10,
-                side=ft.BorderSide(color=default_color),
+                border_radius=12,
+                side=ft.BorderSide(width=1, color=default_color),
             ),
             ft.ControlState.FOCUSED: ft.OutlineInputBorder(
-                border_radius=10,
-                side=ft.BorderSide(color=cls.BRAND_CYAN),
+                border_radius=12,
+                side=ft.BorderSide(width=2, color=cls.PRIMARY_COLOR),
             ),
         }
 
     @classmethod
     def _primary_button_style(cls):
         return ft.ButtonStyle(
-            bgcolor=cls.BRAND_BLUE,
+            bgcolor=cls.PRIMARY_COLOR,
             color=ft.Colors.WHITE,
-            shape=ft.RoundedRectangleBorder(radius=14),
-            padding=ft.Padding(16, 14, 16, 14),
+            shape=ft.RoundedRectangleBorder(radius=20),
+            padding=ft.Padding(16, 12, 16, 12),
         )
 
     @classmethod
     def _secondary_button_style(cls):
         return ft.ButtonStyle(
-            color=cls.BRAND_BLUE,
-            side=ft.BorderSide(1, cls.BRAND_BLUE),
-            shape=ft.RoundedRectangleBorder(radius=14),
-            padding=ft.Padding(4, 0, 4, 0),
+            color=cls.PRIMARY_COLOR,
+            side=ft.BorderSide(1, "#C2C7CF"),
+            shape=ft.RoundedRectangleBorder(radius=20),
+            padding=ft.Padding(12, 10, 12, 10),
         )
 
     @staticmethod
     def _section_card(title: str, controls):
         return ft.Card(
-            elevation=5,
+            elevation=0,
             bgcolor=ft.Colors.WHITE,
-            shape=ft.RoundedRectangleBorder(radius=20),
+            shape=ft.RoundedRectangleBorder(
+                radius=16,
+                side=ft.BorderSide(width=1, color="#E0E2EC"),
+            ),
             content=ft.Container(
-                padding=ft.Padding(14, 12, 14, 14),
+                padding=ft.Padding(16, 16, 16, 16),
                 content=ft.Column(
-                    spacing=10,
+                    spacing=12,
                     controls=[
-                        ft.Text(title, size=17, weight=ft.FontWeight.BOLD, color="#1A1A1A"),
+                        ft.Row(
+                            spacing=8,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                ft.Container(
+                                    width=4,
+                                    height=16,
+                                    bgcolor="#006494",
+                                    border_radius=2,
+                                ),
+                                ft.Text(
+                                    title,
+                                    size=15,
+                                    weight=ft.FontWeight.BOLD,
+                                    color="#191C1E",
+                                ),
+                            ],
+                        ),
                         *controls,
                     ],
                 ),
