@@ -515,6 +515,69 @@ class DBManager:
             )
             conn.commit()
 
+    def get_company_profile(self) -> Dict[str, Any]:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS company_profile (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    company_name TEXT NOT NULL DEFAULT 'CÔNG TY TNHH ĐIỆN TỬ TOÀN TRUNG',
+                    address TEXT NOT NULL DEFAULT '31 Núi Thành, Phường 13, Quận Tân Bình, TP. Hồ Chí Minh',
+                    phone TEXT NOT NULL DEFAULT '0903 848 111 - (028) 38 123 011',
+                    email TEXT NOT NULL DEFAULT 'toantrung@toantrung.com',
+                    website TEXT NOT NULL DEFAULT 'www.toantrung.com',
+                    tax_code TEXT NOT NULL DEFAULT '0304620008',
+                    bank_account TEXT NOT NULL DEFAULT '19020491823019 - Techcombank CN Tân Bình',
+                    default_vat REAL NOT NULL DEFAULT 8.0,
+                    default_profit REAL NOT NULL DEFAULT 20.0,
+                    default_warranty_months INTEGER NOT NULL DEFAULT 24,
+                    notes TEXT NOT NULL DEFAULT 'Báo giá có hiệu lực trong vòng 15 ngày kể từ ngày lập.',
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            row = conn.execute("SELECT * FROM company_profile WHERE id = 1").fetchone()
+            if not row:
+                conn.execute("INSERT INTO company_profile (id) VALUES (1)")
+                conn.commit()
+                row = conn.execute("SELECT * FROM company_profile WHERE id = 1").fetchone()
+            return dict(row)
+
+    def update_company_profile(self, data: Dict[str, Any]) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE company_profile
+                SET company_name = ?,
+                    address = ?,
+                    phone = ?,
+                    email = ?,
+                    website = ?,
+                    tax_code = ?,
+                    bank_account = ?,
+                    default_vat = ?,
+                    default_profit = ?,
+                    default_warranty_months = ?,
+                    notes = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = 1
+                """,
+                (
+                    data.get("company_name", ""),
+                    data.get("address", ""),
+                    data.get("phone", ""),
+                    data.get("email", ""),
+                    data.get("website", ""),
+                    data.get("tax_code", ""),
+                    data.get("bank_account", ""),
+                    float(data.get("default_vat", 8.0)),
+                    float(data.get("default_profit", 20.0)),
+                    int(data.get("default_warranty_months", 24)),
+                    data.get("notes", ""),
+                ),
+            )
+            conn.commit()
+
     def delete_product(self, code: str) -> None:
         with self._connect() as conn:
             conn.execute(

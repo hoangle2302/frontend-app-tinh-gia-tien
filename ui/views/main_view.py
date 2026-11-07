@@ -1,5 +1,5 @@
 import sqlite3
-from typing import Any, Dict
+from typing import Any, Callable, Dict
 
 import flet as ft
 
@@ -8,12 +8,14 @@ from engine.calculator import CalculationInput, Calculators
 from engine.exporter import QuoteExporter
 from ui.components.input_panel import InputPanel
 from ui.components.preview_panel import PreviewPanel
+from ui.views.profile_view import ProfileView
 
 
 class MainView:
-    def __init__(self, page: ft.Page, db: DBManager):
+    def __init__(self, page: ft.Page, db: DBManager, on_logout: Callable = None):
         self.page = page
         self.db = db
+        self.on_logout = on_logout
         self.calculator = Calculators()
         self.exporter = QuoteExporter()
         self.quote_data: Dict[str, Any] = {}
@@ -42,56 +44,120 @@ class MainView:
         self.quote_view = ft.Container(
             padding=ft.Padding(8, 4, 8, 8),
             content=None,
+            expand=True,
         )
         self.inventory_view = self._build_inventory_view()
         self.history_view = self._build_history_view()
-        self.tabs = ft.Tabs(
-            selected_index=0,
-            length=3,
-            expand=1,
-            animation_duration=250,
-            content=ft.Column(
-                expand=True,
-                controls=[
-                    ft.TabBar(
-                        divider_color="#E0E2EC",
-                        indicator_color="#006494",
-                        indicator_thickness=3,
-                        scrollable=False,
-                        label_padding=ft.Padding(16, 0, 16, 0),
-                        label_text_style=ft.TextStyle(size=14, weight=ft.FontWeight.BOLD),
-                        unselected_label_text_style=ft.TextStyle(size=14, weight=ft.FontWeight.W_500),
-                        tabs=[
-                            ft.Tab(label="Báo giá", icon=ft.Icons.CALCULATE_OUTLINED),
-                            ft.Tab(label="Danh mục", icon=ft.Icons.INVENTORY_2_OUTLINED),
-                            ft.Tab(label="Lịch sử", icon=ft.Icons.HISTORY_ROUNDED),
-                        ]
-                    ),
-                    ft.TabBarView(
-                        expand=True,
-                        controls=[self.quote_view, self.inventory_view, self.history_view],
-                    ),
-                ],
-            ),
+        self.profile_view = ProfileView(
+            page=self.page,
+            db=self.db,
+            on_profile_updated=self._on_profile_updated,
+            on_logout=self.on_logout,
         )
+
+        # View container chứa trang hiện tại
+        self.view_container = ft.Container(
+            content=self.quote_view,
+            expand=True,
+        )
+
+        # Thanh Menu Navigation Bar đặt ở dưới cùng chuẩn Material 3
+        self.nav_bar = ft.NavigationBar(
+            selected_index=0,
+            height=65,
+            bgcolor="#FFFFFF",
+            indicator_color="#CBE6FF",
+            on_change=self._on_nav_change,
+            destinations=[
+                ft.NavigationBarDestination(
+                    icon=ft.Icons.CALCULATE_OUTLINED,
+                    selected_icon=ft.Icons.CALCULATE,
+                    label="Báo giá",
+                ),
+                ft.NavigationBarDestination(
+                    icon=ft.Icons.INVENTORY_2_OUTLINED,
+                    selected_icon=ft.Icons.INVENTORY_2,
+                    label="Danh mục",
+                ),
+                ft.NavigationBarDestination(
+                    icon=ft.Icons.HISTORY_TOGGLE_OFF,
+                    selected_icon=ft.Icons.HISTORY,
+                    label="Lịch sử",
+                ),
+                ft.NavigationBarDestination(
+                    icon=ft.Icons.ACCOUNT_CIRCLE_OUTLINED,
+                    selected_icon=ft.Icons.ACCOUNT_CIRCLE,
+                    label="Hồ sơ",
+                ),
+            ],
+        )
+
+        self.layout = ft.Column(
+            expand=True,
+            spacing=0,
+            controls=[
+                self.view_container,
+                ft.Divider(height=1, thickness=1, color="#E0E2EC"),
+                self.nav_bar,
+            ],
+        )
+
+        self.tabs = self.layout
         self._mounted = False
         self.page.on_resize = self._on_resize
         self._on_resize()
         self.recalculate()
 
+    def _on_profile_updated(self, data: dict):
+        # Tự động cập nhật default VAT / Lợi nhuận vào form Báo giá nếu người dùng muốn
+        if hasattr(self, "input_panel"):
+            if "default_vat" in data and not self.input_panel.vat_input.value:
+                self.input_panel.vat_input.value = str(data["default_vat"])
+            if "default_profit" in data and not self.input_panel.profit_input.value:
+                self.input_panel.profit_input.value = str(data["default_profit"])
+            self.recalculate()
+
+    def _on_nav_change(self, e):
+        idx = self.nav_bar.selected_index
+        views = [self.quote_view, self.inventory_view, self.history_view, self.profile_view]
+        self.view_container.content = views[idx]
+        if idx == 1:
+            self._refresh_inventory()
+        elif idx == 2:
+            self._refresh_history()
+        self.page.update()
+
     def mount(self):
-        self.page.add(
-            self.tabs,
-        )
         self._mounted = True
         self._on_resize()
 
     def _on_resize(self, e=None):
-        self.quote_view.content = ft.Column(
-            spacing=8,
-            scroll=ft.ScrollMode.AUTO,
-            controls=[self.left_container, self.preview_panel],
-        )
+        page_w = self.page.width or 400
+        is_wide = page_w >= 850
+
+        if is_wide:
+            self.left_container.expand = 1
+            self.preview_panel.expand = 1
+            self.quote_view.content = ft.Row(
+                spacing=12,
+                vertical_alignment=ft.CrossAxisAlignment.START,
+                controls=[
+                    ft.Container(content=self.left_container, expand=1),
+                    ft.Container(content=self.preview_panel, expand=1),
+                ],
+            )
+        else:
+            self.left_container.expand = False
+            self.preview_panel.expand = False
+            self.quote_view.content = ft.Column(
+                spacing=8,
+                scroll=ft.ScrollMode.AUTO,
+                controls=[self.left_container, self.preview_panel],
+            )
+
+        if hasattr(self, "profile_view") and hasattr(self.profile_view, "on_resize"):
+            self.profile_view.on_resize(page_w)
+
         if self._mounted:
             self.page.update()
 
@@ -109,6 +175,10 @@ class MainView:
             "card_chip": "#272A2E" if is_dark else "#F0F4F8",
             "icon": "#8C9199" if is_dark else "#72777F",
         }
+
+        if hasattr(self, "nav_bar"):
+            self.nav_bar.bgcolor = "#111827" if is_dark else "#FFFFFF"
+            self.nav_bar.indicator_color = "#004B70" if is_dark else "#CBE6FF"
 
         def visit(control):
             if isinstance(control, ft.Card):
@@ -483,14 +553,16 @@ class MainView:
             self.page.update()
 
     def _open_quote_tab(self, e=None):
-        self.tabs.selected_index = 0
+        self.nav_bar.selected_index = 0
+        self.view_container.content = self.quote_view
         self.page.update()
 
     def _load_history(self, history_id: int):
         item = self.db.get_quote_history(history_id)
         if item:
             self.input_panel.set_values(item["payload"])
-            self.tabs.selected_index = 0
+            self.nav_bar.selected_index = 0
+            self.view_container.content = self.quote_view
             self.recalculate()
 
     def _delete_history(self, history_id: int):
@@ -511,7 +583,8 @@ class MainView:
             return
         payload = item["payload"]
         self.input_panel.set_values(payload)
-        self.tabs.selected_index = 0
+        self.nav_bar.selected_index = 0
+        self.view_container.content = self.quote_view
         self.recalculate()
         self.message.value = "Đã nhân bản báo giá. Bạn có thể chỉnh sửa rồi lưu thành báo giá mới."
         self.message.color = ft.Colors.GREEN_700
