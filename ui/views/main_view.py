@@ -1078,6 +1078,7 @@ class MainView:
                 "project": form["project_name"],
                 "phone": form["customer_phone"],
             }
+            self.quote_data["display_mode"] = form["display_mode"]
             self.preview_panel.update_quote(self.quote_data)
             self.message.value = ""
         except ValueError as exc:
