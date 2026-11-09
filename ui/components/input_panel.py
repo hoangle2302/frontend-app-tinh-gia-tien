@@ -81,6 +81,19 @@ class InputPanel(ft.Container):
             **self._dropdown_style(),
             options=[], on_select=self._trigger_change
         )
+        # Loại trình chiếu
+        self.display_mode = ft.Dropdown(
+            label="Loại trình chiếu",
+            value="both",
+            expand=True,
+            **self._dropdown_style(),
+            options=[
+                ft.dropdown.Option("online", "Online"),
+                ft.dropdown.Option("offline", "Offline"),
+                ft.dropdown.Option("both", "Online + Offline"),
+            ],
+            on_select=self._trigger_change,
+        )
         self.width_input = ft.TextField(
             label="Chiều rộng W (m)", value="4", expand=True,
             keyboard_type=ft.KeyboardType.NUMBER,
@@ -191,6 +204,7 @@ class InputPanel(ft.Container):
                     [
                         self.environment,
                         self.pitch_dropdown,
+                        self.display_mode,
                         ft.Row([self.width_input, self.height_input], spacing=8),
                         self.screen_quantity,
                         self.card_dropdown,
@@ -385,6 +399,7 @@ class InputPanel(ft.Container):
     def set_values(self, values: Dict):
         self.environment.value = values.get("environment", "indoor")
         self._load_options_for_environment(self.environment.value)
+        self.display_mode.value = values.get("display_mode", "both")
         for control, key in (
             (self.pitch_dropdown, "module_code"),
             (self.card_dropdown, "card_code"),
@@ -413,6 +428,7 @@ class InputPanel(ft.Container):
         return {
             "environment": self.environment.value,
             "module_code": self.pitch_dropdown.value,
+            "display_mode": self.display_mode.value,
             "card_code": self.card_dropdown.value,
             "power_code": self.power_dropdown.value,
             "frame_code": self.frame_dropdown.value,
