@@ -15,8 +15,8 @@ class BOMTable(ft.Container):
             elevation=0,
             bgcolor=ft.Colors.WHITE,
             shape=ft.RoundedRectangleBorder(
-                radius=16,
-                side=ft.BorderSide(width=1, color="#E0E2EC"),
+                radius=14,
+                side=ft.BorderSide(width=1, color="#E2E8F0"),
             ),
             content=ft.Container(
                 padding=16,
@@ -30,14 +30,14 @@ class BOMTable(ft.Container):
                                 ft.Container(
                                     width=4,
                                     height=16,
-                                    bgcolor="#006494",
+                                    bgcolor="#2563EB",
                                     border_radius=2,
                                 ),
                                 ft.Text(
                                     "Bảng kê vật tư (BOM)",
                                     size=15,
                                     weight=ft.FontWeight.BOLD,
-                                    color="#191C1E",
+                                    color="#0F172A",
                                 ),
                             ],
                         ),
@@ -53,7 +53,7 @@ class BOMTable(ft.Container):
             rows.append(
                 ft.Container(
                     padding=ft.Padding(12, 10, 12, 10),
-                    border=ft.Border.all(1, "#E0E2EC"),
+                    border=ft.Border.all(1, "#E2E8F0"),
                     border_radius=12,
                     bgcolor="#F8F9FC",
                     content=ft.Column(
@@ -62,16 +62,16 @@ class BOMTable(ft.Container):
                             ft.Row(
                                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                                 controls=[
-                                    ft.Text(str(row["name"]), weight=ft.FontWeight.BOLD, size=14, color="#191C1E"),
+                                    ft.Text(str(row["name"]), weight=ft.FontWeight.BOLD, size=14, color="#0F172A"),
                                     ft.Text(
                                         f"{row['line_total']:,.0f} đ",
                                         weight=ft.FontWeight.BOLD,
                                         size=14,
-                                        color="#006494",
+                                        color="#2563EB",
                                     ),
                                 ],
                             ),
-                            ft.Text(str(row["spec"]), size=12, color="#72777F"),
+                            ft.Text(str(row["spec"]), size=12, color="#64748B"),
                             ft.Row(
                                 wrap=True,
                                 spacing=12,

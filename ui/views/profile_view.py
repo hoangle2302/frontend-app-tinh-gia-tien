@@ -134,7 +134,7 @@ class ProfileView(ft.Container):
             height=44,
             style=ft.ButtonStyle(
                 shape=ft.RoundedRectangleBorder(radius=12),
-                side=ft.BorderSide(1, "#C2C7CF"),
+                side=ft.BorderSide(1, "#CBD5E1"),
                 padding=ft.Padding(8, 0, 8, 0),
             ),
             on_click=self._handle_reset_defaults,
@@ -147,7 +147,7 @@ class ProfileView(ft.Container):
             height=44,
             style=ft.ButtonStyle(
                 shape=ft.RoundedRectangleBorder(radius=12),
-                side=ft.BorderSide(1, "#C2C7CF"),
+                side=ft.BorderSide(1, "#CBD5E1"),
                 padding=ft.Padding(8, 0, 8, 0),
             ),
             on_click=self._handle_backup_db,
@@ -176,14 +176,14 @@ class ProfileView(ft.Container):
                         ft.Container(
                             width=4,
                             height=24,
-                            bgcolor="#004A98",
+                            bgcolor="#2563EB",
                             border_radius=2,
                         ),
                         ft.Column(
                             spacing=1,
                             controls=[
-                                ft.Text("Hồ sơ & Cài đặt hệ thống", size=20, weight=ft.FontWeight.BOLD, color="#191C1E"),
-                                ft.Text("Thông tin pháp lý, điều khoản báo giá & quản lý tài khoản", size=12, color="#72777F"),
+                                ft.Text("Hồ sơ & Cài đặt hệ thống", size=20, weight=ft.FontWeight.BOLD, color="#0F172A"),
+                                ft.Text("Thông tin pháp lý, điều khoản báo giá & quản lý tài khoản", size=12, color="#64748B"),
                             ],
                         ),
                     ],
@@ -245,8 +245,8 @@ class ProfileView(ft.Container):
             elevation=0,
             bgcolor=ft.Colors.WHITE,
             shape=ft.RoundedRectangleBorder(
-                radius=16,
-                side=ft.BorderSide(width=1, color="#E0E2EC"),
+                radius=14,
+                side=ft.BorderSide(width=1, color="#E2E8F0"),
             ),
             content=ft.Container(
                 padding=16,
@@ -260,14 +260,14 @@ class ProfileView(ft.Container):
                                 ft.Container(
                                     width=4,
                                     height=16,
-                                    bgcolor="#004A98",
+                                    bgcolor="#2563EB",
                                     border_radius=2,
                                 ),
                                 ft.Text(
                                     title,
                                     size=15,
                                     weight=ft.FontWeight.BOLD,
-                                    color="#191C1E",
+                                    color="#0F172A",
                                 ),
                             ],
                         ),

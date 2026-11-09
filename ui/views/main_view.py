@@ -37,17 +37,33 @@ class MainView:
             self.on_save_quote,
             self.on_share_quote,
         )
+        self.input_panel.expand = True
         self.left_container = ft.Container(
             content=self.input_panel,
             expand=True,
         )
+        # Thanh áp dụng cấu hình cố định phía dưới tab Lập dự toán
+        self._total_texts = []
+        quote_bar = self._build_apply_bar()
         self.quote_view = ft.Container(
-            padding=ft.Padding(8, 4, 8, 8),
-            content=None,
+            padding=ft.Padding(8, 4, 8, 0),
+            content=ft.Column(
+                spacing=8,
+                expand=True,
+                controls=[self.left_container, quote_bar],
+            ),
             expand=True,
         )
+        # Trạng thái tab Linh kiện
+        self._inv_filter = "all"
+        self._inv_selected = None
+        self._inv_qty = 1
+        self.selected_quote_ids = set()
+        self.select_mode = False
         self.inventory_view = self._build_inventory_view()
+        self.summary_view = self._build_summary_view()
         self.history_view = self._build_history_view()
+        self.list_view = self._build_list_view()
         self.profile_view = ProfileView(
             page=self.page,
             db=self.db,
@@ -61,44 +77,53 @@ class MainView:
             expand=True,
         )
 
+        # Nút hành động nổi (FAB menu mini) ở phía trên thanh NavigationBar
+        self.action_menu_btn = self._build_action_menu_button()
+
         # Thanh Menu Navigation Bar đặt ở dưới cùng chuẩn Material 3
         self.nav_bar = ft.NavigationBar(
             selected_index=0,
             height=65,
             bgcolor="#FFFFFF",
-            indicator_color="#CBE6FF",
+            indicator_color="#E8EEFF",
             on_change=self._on_nav_change,
             destinations=[
                 ft.NavigationBarDestination(
-                    icon=ft.Icons.CALCULATE_OUTLINED,
-                    selected_icon=ft.Icons.CALCULATE,
-                    label="Báo giá",
+                    icon=ft.Icons.EDIT_NOTE_OUTLINED,
+                    selected_icon=ft.Icons.EDIT_NOTE,
+                    label="Lập dự toán",
                 ),
                 ft.NavigationBarDestination(
-                    icon=ft.Icons.INVENTORY_2_OUTLINED,
-                    selected_icon=ft.Icons.INVENTORY_2,
-                    label="Danh mục",
+                    icon=ft.Icons.WIDGETS_OUTLINED,
+                    selected_icon=ft.Icons.WIDGETS,
+                    label="Linh kiện",
                 ),
                 ft.NavigationBarDestination(
-                    icon=ft.Icons.HISTORY_TOGGLE_OFF,
-                    selected_icon=ft.Icons.HISTORY,
-                    label="Lịch sử",
+                    icon=ft.Icons.RECEIPT_LONG_OUTLINED,
+                    selected_icon=ft.Icons.RECEIPT_LONG,
+                    label="Tổng hợp",
                 ),
                 ft.NavigationBarDestination(
-                    icon=ft.Icons.ACCOUNT_CIRCLE_OUTLINED,
-                    selected_icon=ft.Icons.ACCOUNT_CIRCLE,
-                    label="Hồ sơ",
+                    icon=ft.Icons.FORMAT_LIST_BULLETED_OUTLINED,
+                    selected_icon=ft.Icons.FORMAT_LIST_BULLETED,
+                    label="Danh sách",
                 ),
             ],
         )
 
-        self.layout = ft.Column(
+        self.layout = ft.Stack(
             expand=True,
-            spacing=0,
             controls=[
-                self.view_container,
-                ft.Divider(height=1, thickness=1, color="#E0E2EC"),
-                self.nav_bar,
+                ft.Column(
+                    expand=True,
+                    spacing=0,
+                    controls=[
+                        self.view_container,
+                        ft.Divider(height=1, thickness=1, color="#E2E8F0"),
+                        self.nav_bar,
+                    ],
+                ),
+                self.action_menu_btn,
             ],
         )
 
@@ -118,14 +143,52 @@ class MainView:
             self.recalculate()
 
     def _on_nav_change(self, e):
-        idx = self.nav_bar.selected_index
-        views = [self.quote_view, self.inventory_view, self.history_view, self.profile_view]
+        self._go_tab(self.nav_bar.selected_index)
+
+    def _go_tab(self, idx: int):
+        views = [self.quote_view, self.inventory_view, self.summary_view, self.list_view]
+        self.nav_bar.selected_index = idx
         self.view_container.content = views[idx]
         if idx == 1:
             self._refresh_inventory()
         elif idx == 2:
-            self._refresh_history()
+            self._sync_summary_fields()
+            self._refresh_summary()
+        elif idx == 3:
+            self._refresh_list_view()
         self.page.update()
+
+    def _open_aux(self, title: str, view):
+        """Mở Lịch sử / Hồ sơ (từ nút trên thanh tiêu đề) kèm nút quay lại."""
+        self.view_container.content = ft.Column(
+            expand=True,
+            spacing=0,
+            controls=[
+                ft.Container(
+                    padding=ft.Padding(8, 4, 8, 0),
+                    content=ft.Row(
+                        spacing=4,
+                        controls=[
+                            ft.IconButton(
+                                icon=ft.Icons.ARROW_BACK,
+                                tooltip="Quay lại",
+                                on_click=lambda e: self._go_tab(self.nav_bar.selected_index or 0),
+                            ),
+                            ft.Text(title, size=14, weight=ft.FontWeight.W_600, color="#64748B"),
+                        ],
+                    ),
+                ),
+                ft.Container(expand=True, content=view),
+            ],
+        )
+        self.page.update()
+
+    def open_history(self, e=None):
+        self._refresh_history()
+        self._open_aux("Lịch sử báo giá", self.history_view)
+
+    def open_profile(self, e=None):
+        self._open_aux("Hồ sơ", self.profile_view)
 
     def mount(self):
         self._mounted = True
@@ -133,27 +196,6 @@ class MainView:
 
     def _on_resize(self, e=None):
         page_w = self.page.width or 400
-        is_wide = page_w >= 850
-
-        if is_wide:
-            self.left_container.expand = 1
-            self.preview_panel.expand = 1
-            self.quote_view.content = ft.Row(
-                spacing=12,
-                vertical_alignment=ft.CrossAxisAlignment.START,
-                controls=[
-                    ft.Container(content=self.left_container, expand=1),
-                    ft.Container(content=self.preview_panel, expand=1),
-                ],
-            )
-        else:
-            self.left_container.expand = False
-            self.preview_panel.expand = False
-            self.quote_view.content = ft.Column(
-                spacing=8,
-                scroll=ft.ScrollMode.AUTO,
-                controls=[self.left_container, self.preview_panel],
-            )
 
         if hasattr(self, "profile_view") and hasattr(self.profile_view, "on_resize"):
             self.profile_view.on_resize(page_w)
@@ -165,30 +207,58 @@ class MainView:
         self._on_resize(e)
 
     def apply_theme(self, is_dark: bool):
+        if hasattr(self, "input_panel") and hasattr(self.input_panel, "apply_theme"):
+            self.input_panel.apply_theme(is_dark)
+
         palette = {
             "surface": "#1D2024" if is_dark else ft.Colors.WHITE,
             "surface_card": "#1D2024" if is_dark else ft.Colors.WHITE,
             "field": ft.Colors.TRANSPARENT,
-            "primary_text": "#E0E2E8" if is_dark else "#191C1E",
-            "secondary_text": "#8C9199" if is_dark else "#72777F",
-            "border": "#42474E" if is_dark else "#E0E2EC",
-            "card_chip": "#272A2E" if is_dark else "#F0F4F8",
-            "icon": "#8C9199" if is_dark else "#72777F",
+            "primary_text": "#E0E2E8" if is_dark else "#0F172A",
+            "secondary_text": "#8C9199" if is_dark else "#64748B",
+            "border": "#42474E" if is_dark else "#E2E8F0",
+            "card_chip": "#272A2E" if is_dark else "#F1F5F9",
+            "icon": "#8C9199" if is_dark else "#64748B",
         }
 
         if hasattr(self, "nav_bar"):
             self.nav_bar.bgcolor = "#111827" if is_dark else "#FFFFFF"
-            self.nav_bar.indicator_color = "#004B70" if is_dark else "#CBE6FF"
+            self.nav_bar.indicator_color = "#004B70" if is_dark else "#E8EEFF"
 
         def visit(control):
             if isinstance(control, ft.Card):
                 control.bgcolor = palette["surface_card"]
                 if control.shape and isinstance(control.shape, ft.RoundedRectangleBorder):
                     control.shape.side = ft.BorderSide(width=1, color=palette["border"])
+            elif isinstance(control, ft.Container):
+                # Đổi màu nền cho các container card trong theme tối
+                bg = getattr(control, "bgcolor", None)
+                if bg in [ft.Colors.WHITE, "#F8FAFC", "#EFF6FF", "#F0F5FF"]:
+                    if is_dark:
+                        control.bgcolor = "#2A2E33" if bg in ["#F8FAFC", "#EFF6FF", "#F0F5FF"] else palette["surface_card"]
+                elif bg in ["#1D2024", "#2A2E33"] and not is_dark:
+                    control.bgcolor = ft.Colors.WHITE
+                if getattr(control, "border", None):
+                    control.border = ft.Border.all(1, palette["border"])
             if isinstance(control, ft.Text):
-                if getattr(control, "color", None) not in {"#BA1A1A", "#006494", "#8FCDFF"}:
+                if getattr(control, "color", None) not in {"#BA1A1A", "#2563EB", "#8FCDFF"}:
                     control.color = palette["primary_text"]
-            elif isinstance(control, (ft.TextField, ft.Dropdown)):
+            elif isinstance(control, ft.Dropdown):
+                control.bgcolor = palette["surface"]
+                control.border = {
+                    ft.ControlState.DEFAULT: ft.OutlineInputBorder(
+                        border_radius=12,
+                        side=ft.BorderSide(width=1, color=palette["border"]),
+                    ),
+                    ft.ControlState.FOCUSED: ft.OutlineInputBorder(
+                        border_radius=12,
+                        side=ft.BorderSide(width=2, color="#8FCDFF" if is_dark else "#2563EB"),
+                    ),
+                }
+                control.label_style = ft.TextStyle(size=13, color=palette["secondary_text"])
+                if hasattr(control, "menu_style") and control.menu_style:
+                    control.menu_style.bgcolor = palette["surface"]
+            elif isinstance(control, ft.TextField):
                 control.bgcolor = palette["field"]
                 control.border = {
                     ft.ControlState.DEFAULT: ft.OutlineInputBorder(
@@ -197,7 +267,7 @@ class MainView:
                     ),
                     ft.ControlState.FOCUSED: ft.OutlineInputBorder(
                         border_radius=12,
-                        side=ft.BorderSide(width=2, color="#8FCDFF" if is_dark else "#006494"),
+                        side=ft.BorderSide(width=2, color="#8FCDFF" if is_dark else "#2563EB"),
                     ),
                 }
                 control.label_style = ft.TextStyle(size=13, color=palette["secondary_text"])
@@ -256,7 +326,7 @@ class MainView:
                     ft.Radio(
                         value=val,
                         label=lbl,
-                        fill_color="#006494",
+                        fill_color="#2563EB",
                     )
                     for val, lbl in options
                 ],
@@ -264,12 +334,12 @@ class MainView:
         )
         container = ft.Container(
             padding=ft.Padding(10, 8, 10, 8),
-            border=ft.Border.all(1, "#C2C7CF"),
+            border=ft.Border.all(1, "#CBD5E1"),
             border_radius=12,
             content=ft.Column(
                 spacing=4,
                 controls=[
-                    ft.Text("Nhóm vật tư *", size=12, color="#72777F", weight=ft.FontWeight.W_500),
+                    ft.Text("Nhóm vật tư *", size=12, color="#64748B", weight=ft.FontWeight.W_500),
                     radio_group,
                 ],
             ),
@@ -313,14 +383,14 @@ class MainView:
                             ft.Container(
                                 width=4,
                                 height=24,
-                                bgcolor="#006494",
+                                bgcolor="#2563EB",
                                 border_radius=2,
                             ),
                             ft.Column(
                                 spacing=1,
                                 controls=[
-                                    ft.Text("Lịch sử báo giá", size=20, weight=ft.FontWeight.BOLD, color="#191C1E"),
-                                    ft.Text("Theo dõi trạng thái, mở lại hoặc xuất lại các báo giá đã tạo", size=12, color="#72777F"),
+                                    ft.Text("Lịch sử báo giá", size=20, weight=ft.FontWeight.BOLD, color="#0F172A"),
+                                    ft.Text("Theo dõi trạng thái, mở lại hoặc xuất lại các báo giá đã tạo", size=12, color="#64748B"),
                                 ],
                             ),
                         ],
@@ -350,12 +420,12 @@ class MainView:
                     expand=True,
                     padding=ft.Padding(12, 8, 12, 8),
                     border_radius=12,
-                    bgcolor="#F0F4F8",
+                    bgcolor="#F1F5F9",
                     content=ft.Column(
                         spacing=2,
                         controls=[
-                            ft.Text("Tổng báo giá", size=11, color="#72777F", weight=ft.FontWeight.W_500),
-                            ft.Text(f"{total_count} bản ghi", size=14, weight=ft.FontWeight.BOLD, color="#191C1E"),
+                            ft.Text("Tổng báo giá", size=11, color="#64748B", weight=ft.FontWeight.W_500),
+                            ft.Text(f"{total_count} bản ghi", size=14, weight=ft.FontWeight.BOLD, color="#0F172A"),
                         ],
                     ),
                 ),
@@ -376,7 +446,7 @@ class MainView:
                     expand=True,
                     padding=ft.Padding(12, 8, 12, 8),
                     border_radius=12,
-                    bgcolor="#CBE6FF",
+                    bgcolor="#E8EEFF",
                     content=ft.Column(
                         spacing=2,
                         controls=[
@@ -393,8 +463,8 @@ class MainView:
                     elevation=0,
                     bgcolor=ft.Colors.WHITE,
                     shape=ft.RoundedRectangleBorder(
-                        radius=16,
-                        side=ft.BorderSide(width=1, color="#E0E2EC"),
+                        radius=14,
+                        side=ft.BorderSide(width=1, color="#E2E8F0"),
                     ),
                     content=ft.Container(
                         padding=24,
@@ -403,8 +473,8 @@ class MainView:
                             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                             spacing=8,
                             controls=[
-                                ft.Icon(ft.Icons.HISTORY_TOGGLE_OFF, size=36, color="#72777F"),
-                                ft.Text("Chưa có báo giá nào trong danh sách", color="#72777F", size=14),
+                                ft.Icon(ft.Icons.HISTORY_TOGGLE_OFF, size=36, color="#64748B"),
+                                ft.Text("Chưa có báo giá nào trong danh sách", color="#64748B", size=14),
                                 ft.FilledButton(
                                     "Tạo báo giá mới ngay",
                                     icon=ft.Icons.ADD,
@@ -418,21 +488,21 @@ class MainView:
             )
         else:
             status_colors = {
-                "Nháp": ("#F0F4F8", "#42474E"),
-                "Đã gửi": ("#CBE6FF", "#004B70"),
+                "Nháp": ("#F1F5F9", "#42474E"),
+                "Đã gửi": ("#E8EEFF", "#004B70"),
                 "Chốt": ("#DFFFE2", "#1B5E20"),
                 "Hủy": ("#FFDAD6", "#BA1A1A"),
             }
             for item in history:
                 curr_status = item.get("status", "Nháp")
-                bg_chip, text_chip = status_colors.get(curr_status, ("#F0F4F8", "#42474E"))
+                bg_chip, text_chip = status_colors.get(curr_status, ("#F1F5F9", "#42474E"))
                 self.history_rows.controls.append(
                     ft.Card(
                         elevation=0,
                         bgcolor=ft.Colors.WHITE,
                         shape=ft.RoundedRectangleBorder(
-                            radius=16,
-                            side=ft.BorderSide(width=1, color="#E0E2EC"),
+                            radius=14,
+                            side=ft.BorderSide(width=1, color="#E2E8F0"),
                         ),
                         content=ft.Container(
                             padding=14,
@@ -455,7 +525,7 @@ class MainView:
                                                         item.get("quote_number") or f"BG-ID-{item['id']}",
                                                         weight=ft.FontWeight.BOLD,
                                                         size=13,
-                                                        color="#006494",
+                                                        color="#2563EB",
                                                     ),
                                                 ],
                                             ),
@@ -463,7 +533,7 @@ class MainView:
                                                 f"{item['total']:,.0f} đ",
                                                 weight=ft.FontWeight.BOLD,
                                                 size=15,
-                                                color="#006494",
+                                                color="#2563EB",
                                             ),
                                         ],
                                     ),
@@ -471,7 +541,7 @@ class MainView:
                                         f"Khách hàng: {item.get('customer_name') or 'Chưa cập nhật'}"
                                         + (f" • Dự án: {item.get('project_name')}" if item.get('project_name') else ""),
                                         size=13,
-                                        color="#191C1E",
+                                        color="#0F172A",
                                         weight=ft.FontWeight.W_500,
                                     ),
                                     ft.Row(
@@ -482,16 +552,16 @@ class MainView:
                                                 f"Kích thước: {item.get('width_m', 0)}m × {item.get('height_m', 0)}m"
                                                 + (f" • Mod: {item.get('module_code')}" if item.get('module_code') else ""),
                                                 size=11,
-                                                color="#72777F",
+                                                color="#64748B",
                                             ),
                                             ft.Text(
                                                 f"Ngày: {str(item.get('created_at', ''))[:16]}",
                                                 size=11,
-                                                color="#72777F",
+                                                color="#64748B",
                                             ),
                                         ],
                                     ),
-                                    ft.Divider(color="#E0E2EC", height=1),
+                                    ft.Divider(color="#E2E8F0", height=1),
                                     ft.Row(
                                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                                         wrap=True,
@@ -552,10 +622,585 @@ class MainView:
         if hasattr(self, "page"):
             self.page.update()
 
-    def _open_quote_tab(self, e=None):
-        self.nav_bar.selected_index = 0
-        self.view_container.content = self.quote_view
-        self.page.update()
+    # ------------------------------------------------------------------
+    # [UI] Button tròn nhỏ chứa menu thao tác trên thanh navigation bar
+    # ------------------------------------------------------------------
+    def _build_action_menu_button(self):
+        menu_items = [
+            ft.PopupMenuItem(
+                icon=ft.Icons.ADD,
+                content=ft.Text("Tạo mới", size=13, weight=ft.FontWeight.W_600),
+                on_click=lambda e: self._action_create_new(),
+            ),
+            ft.PopupMenuItem(
+                icon=ft.Icons.EDIT_OUTLINED,
+                content=ft.Text("Sửa", size=13),
+                on_click=lambda e: self._action_edit_selected(),
+            ),
+            ft.PopupMenuItem(
+                icon=ft.Icons.CLOSE,
+                content=ft.Text("Xóa", size=13, color="#DC2626"),
+                on_click=lambda e: self._action_delete_selected(),
+            ),
+            ft.PopupMenuItem(
+                icon=ft.Icons.SEARCH,
+                content=ft.Text("Tìm", size=13),
+                on_click=lambda e: self._action_focus_search(),
+            ),
+            ft.PopupMenuItem(
+                icon=ft.Icons.VISIBILITY_OUTLINED,
+                content=ft.Text("Xem", size=13),
+                on_click=lambda e: self._action_view_selected(),
+            ),
+            ft.PopupMenuItem(
+                icon=ft.Icons.CONTENT_COPY_OUTLINED,
+                content=ft.Text("Sao chép", size=13),
+                on_click=lambda e: self._action_clone_selected(),
+            ),
+            ft.PopupMenuItem(
+                icon=ft.Icons.DESELECT_OUTLINED,
+                content=ft.Text("Bỏ chọn", size=13),
+                on_click=lambda e: self._action_deselect_all(),
+            ),
+            ft.PopupMenuItem(
+                icon=ft.Icons.REFRESH,
+                content=ft.Text("Làm mới", size=13),
+                on_click=lambda e: self._action_refresh_all(),
+            ),
+        ]
+
+        action_btn = ft.PopupMenuButton(
+            icon=ft.Icons.APPS_ROUNDED,
+            icon_color=ft.Colors.WHITE,
+            icon_size=18,
+            tooltip="Menu thao tác nhanh",
+            items=menu_items,
+        )
+
+        # Nút nổi Floating Action Button ở góc dưới phải sát trên NavigationBar, không chiếm diện tích layout
+        return ft.Container(
+            right=12,
+            bottom=72,
+            content=ft.Container(
+                width=34,
+                height=34,
+                border_radius=17,
+                bgcolor="#2563EB",
+                shadow=ft.BoxShadow(blur_radius=6, color="#602563EB", offset=ft.Offset(0, 2)),
+                alignment=ft.Alignment(0, 0),
+                content=action_btn,
+            ),
+        )
+
+    # ------------------------------------------------------------------
+    # Các hành động của menu thao tác nhanh & chế độ chọn nhiều mục
+    # ------------------------------------------------------------------
+    def _action_create_new(self):
+        self._go_tab(0)
+        self.input_panel.project_name.value = ""
+        self.input_panel.customer_name.value = ""
+        self.input_panel.customer_phone.value = ""
+        self.input_panel.num_modules_w = 8
+        self.input_panel.num_modules_h = 4
+        self.input_panel.num_reserve_modules = 2
+        self.input_panel.txt_modules_w.value = "8"
+        self.input_panel.txt_modules_h.value = "4"
+        self.input_panel.txt_reserve_modules.value = "2"
+        self.input_panel.additional_items.clear()
+        self.input_panel.additional_rows.controls.clear()
+        self.recalculate()
+        if hasattr(self, "page") and self.page:
+            self.page.snack_bar = ft.SnackBar(ft.Text("Đã tạo mới cấu hình dự toán!"), bgcolor="#2563EB")
+            self.page.snack_bar.open = True
+            self.page.update()
+
+    def _enable_select_mode(self, action_desc: str = ""):
+        self.select_mode = True
+        self._go_tab(3)
+        self._refresh_list_view()
+        if hasattr(self, "page") and self.page:
+            msg = f"Đã mở chức năng chọn. Vui lòng tích chọn dự toán để {action_desc}." if action_desc else "Đã mở chức năng chọn."
+            self.page.snack_bar = ft.SnackBar(ft.Text(msg), bgcolor="#2563EB")
+            self.page.snack_bar.open = True
+            self.page.update()
+
+    def _action_edit_selected(self):
+        if not self.select_mode or len(self.selected_quote_ids) == 0:
+            self._enable_select_mode("chỉnh sửa")
+        elif len(self.selected_quote_ids) == 1:
+            item_id = list(self.selected_quote_ids)[0]
+            self.select_mode = False
+            self.selected_quote_ids.clear()
+            self._load_history(item_id)
+            if hasattr(self, "page") and self.page:
+                self.page.snack_bar = ft.SnackBar(ft.Text("Đang mở chỉnh sửa dự toán đã chọn."), bgcolor="#2563EB")
+                self.page.snack_bar.open = True
+                self.page.update()
+        else:
+            self._go_tab(3)
+            if hasattr(self, "page") and self.page:
+                self.page.snack_bar = ft.SnackBar(ft.Text("Vui lòng chỉ chọn đúng 1 dự toán để chỉnh sửa!"), bgcolor="#DC2626")
+                self.page.snack_bar.open = True
+                self.page.update()
+
+    def _action_delete_selected(self):
+        if not self.select_mode or len(self.selected_quote_ids) == 0:
+            self._enable_select_mode("xóa")
+        else:
+            count = len(self.selected_quote_ids)
+            for item_id in list(self.selected_quote_ids):
+                self.db.delete_quote_history(item_id)
+            self.select_mode = False
+            self.selected_quote_ids.clear()
+            self._refresh_list_view()
+            self._refresh_history()
+            if hasattr(self, "page") and self.page:
+                self.page.snack_bar = ft.SnackBar(ft.Text(f"Đã xóa thành công {count} dự toán!"), bgcolor="#DC2626")
+                self.page.snack_bar.open = True
+                self.page.update()
+
+    def _action_focus_search(self):
+        self._go_tab(3)
+        if hasattr(self, "list_search") and hasattr(self, "page") and self.page:
+            try:
+                if hasattr(self.page, "run_task"):
+                    self.page.run_task(self.list_search.focus)
+                else:
+                    self.list_search.autofocus = True
+                    self.page.update()
+            except Exception:
+                pass
+
+    def _action_view_selected(self):
+        if not self.select_mode or len(self.selected_quote_ids) == 0:
+            self._enable_select_mode("xem")
+        else:
+            item_id = list(self.selected_quote_ids)[0]
+            item = self.db.get_quote_history(item_id)
+            if item:
+                self.input_panel.set_values(item.get("payload") or {})
+                self.recalculate()
+            self.select_mode = False
+            self.selected_quote_ids.clear()
+            self._go_tab(2)
+            if hasattr(self, "page") and self.page:
+                self.page.snack_bar = ft.SnackBar(ft.Text("Đang hiển thị tổng hợp dự toán đã chọn."), bgcolor="#2563EB")
+                self.page.snack_bar.open = True
+                self.page.update()
+
+    def _action_clone_selected(self):
+        if not self.select_mode or len(self.selected_quote_ids) == 0:
+            self._enable_select_mode("sao chép")
+        else:
+            count = 0
+            for item_id in list(self.selected_quote_ids):
+                item = self.db.get_quote_history(item_id)
+                if item:
+                    payload = item.get("payload") or {}
+                    new_name = f"{item.get('quote_name') or 'Dự toán'} (Bản sao)"
+                    self.db.save_quote_history(
+                        quote_name=new_name,
+                        customer_name=item.get("customer_name") or "",
+                        payload=payload,
+                        total=item.get("total", 0),
+                        status="Nháp",
+                    )
+                    count += 1
+            self.select_mode = False
+            self.selected_quote_ids.clear()
+            self._refresh_list_view()
+            self._refresh_history()
+            if hasattr(self, "page") and self.page:
+                self.page.snack_bar = ft.SnackBar(ft.Text(f"Đã sao chép thành công {count} dự toán!"), bgcolor="#2563EB")
+                self.page.snack_bar.open = True
+                self.page.update()
+
+    def _action_refresh_all(self):
+        self.select_mode = False
+        self.selected_quote_ids.clear()
+        self._refresh_options()
+        self._refresh_inventory()
+        self._refresh_history()
+        self._refresh_list_view()
+        self.recalculate()
+        if hasattr(self, "page") and self.page:
+            self.page.snack_bar = ft.SnackBar(ft.Text("Đã làm mới toàn bộ dữ liệu!"), bgcolor="#16A34A")
+            self.page.snack_bar.open = True
+            self.page.update()
+
+    def _action_deselect_all(self):
+        self.select_mode = False
+        self.selected_quote_ids.clear()
+        self._refresh_list_view()
+        if hasattr(self, "page") and self.page:
+            self.page.snack_bar = ft.SnackBar(ft.Text("Đã ẩn chức năng chọn. Mọi thứ trở lại bình thường!"), bgcolor="#2563EB")
+            self.page.snack_bar.open = True
+            self.page.update()
+
+    def _get_filtered_list_history(self):
+        query = (self.list_search.value or "").strip().lower() if hasattr(self, "list_search") else ""
+        history = self.db.list_quote_history()
+        if query:
+            history = [
+                h for h in history
+                if query in str(h.get("quote_number", "")).lower()
+                or query in str(h.get("module_code", "")).lower()
+                or query in str(h.get("customer_name", "")).lower()
+                or query in str(h.get("project_name", "")).lower()
+            ]
+        return history
+
+    def _toggle_select_all(self, e):
+        history = self._get_filtered_list_history()
+        if e.control.value:
+            self.selected_quote_ids = {item["id"] for item in history}
+        else:
+            self.selected_quote_ids.clear()
+        self._refresh_list_view()
+
+    def _toggle_select_item(self, item_id: int, value: bool = None):
+        if value is None:
+            if item_id in self.selected_quote_ids:
+                self.selected_quote_ids.remove(item_id)
+            else:
+                self.selected_quote_ids.add(item_id)
+        else:
+            if value:
+                self.selected_quote_ids.add(item_id)
+            else:
+                self.selected_quote_ids.discard(item_id)
+        self._refresh_list_view()
+
+    # ------------------------------------------------------------------
+    # [UI] Tab "Danh sách" – Bảng danh sách dự toán với các thông số:
+    # Đơn vị, Ngày, Số, Tên module, Diễn giải & Chọn / Thao tác nhiều mục
+    # ------------------------------------------------------------------
+    def _build_list_view(self):
+        self.list_search = ft.TextField(
+            label="Tìm kiếm theo số, module, khách hàng...",
+            prefix_icon=ft.Icons.SEARCH,
+            expand=True,
+            on_change=lambda e: self._refresh_list_view(),
+            **InputPanel._field_style(),
+        )
+        self.list_count_text = ft.Text("", size=12, weight=ft.FontWeight.W_600, color="#64748B")
+        self.list_subtitle_text = ft.Text("Bảng tổng hợp hồ sơ dự toán và thông số kỹ thuật", size=12, color="#64748B")
+        self.select_all_cb = ft.Checkbox(
+            label="Chọn tất cả",
+            value=False,
+            active_color="#2563EB",
+            on_change=self._toggle_select_all,
+        )
+        self.select_count_text = ft.Text("Đã chọn: 0", size=12, color="#2563EB", weight=ft.FontWeight.BOLD)
+
+        # Hàng hiển thị khi ở chế độ chọn
+        self.select_header_row = ft.Row(
+            visible=False,
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[
+                ft.Row(
+                    spacing=4,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        self.select_all_cb,
+                        ft.TextButton(
+                            "Bỏ chọn",
+                            icon=ft.Icons.DESELECT_OUTLINED,
+                            style=ft.ButtonStyle(
+                                color="#DC2626",
+                                padding=ft.Padding(4, 0, 8, 0),
+                            ),
+                            on_click=lambda e: self._action_deselect_all(),
+                        ),
+                    ],
+                ),
+                self.select_count_text,
+            ],
+        )
+
+        # Hàng hiển thị khi ở chế độ bình thường
+        self.normal_header_row = ft.Row(
+            visible=True,
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[
+                self.list_count_text,
+                ft.TextButton(
+                    "Chọn",
+                    icon=ft.Icons.CHECKLIST_OUTLINED,
+                    style=ft.ButtonStyle(
+                        color="#2563EB",
+                        padding=ft.Padding(4, 0, 8, 0),
+                    ),
+                    on_click=lambda e: self._enable_select_mode(),
+                ),
+            ],
+        )
+
+        # Thanh công cụ thao tác khi đã chọn 1 hoặc nhiều dự toán
+        self.selection_bar = ft.Container(
+            visible=False,
+            padding=ft.Padding(12, 8, 12, 8),
+            bgcolor="#EFF6FF",
+            border_radius=10,
+            border=ft.Border.all(1, "#BFDBFE"),
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                wrap=True,
+                spacing=6,
+                controls=[
+                    self.select_count_text,
+                    ft.Row(
+                        spacing=4,
+                        controls=[
+                            ft.OutlinedButton(
+                                "Sửa",
+                                icon=ft.Icons.EDIT_OUTLINED,
+                                height=34,
+                                style=ft.ButtonStyle(
+                                    shape=ft.RoundedRectangleBorder(radius=8),
+                                    padding=ft.Padding(8, 0, 10, 0),
+                                ),
+                                on_click=lambda e: self._action_edit_selected(),
+                            ),
+                            ft.OutlinedButton(
+                                "Xem",
+                                icon=ft.Icons.VISIBILITY_OUTLINED,
+                                height=34,
+                                style=ft.ButtonStyle(
+                                    shape=ft.RoundedRectangleBorder(radius=8),
+                                    padding=ft.Padding(8, 0, 10, 0),
+                                ),
+                                on_click=lambda e: self._action_view_selected(),
+                            ),
+                            ft.OutlinedButton(
+                                "Sao chép",
+                                icon=ft.Icons.CONTENT_COPY_OUTLINED,
+                                height=34,
+                                style=ft.ButtonStyle(
+                                    shape=ft.RoundedRectangleBorder(radius=8),
+                                    padding=ft.Padding(8, 0, 10, 0),
+                                ),
+                                on_click=lambda e: self._action_clone_selected(),
+                            ),
+                            ft.FilledButton(
+                                "Xóa",
+                                icon=ft.Icons.DELETE_OUTLINE,
+                                height=34,
+                                style=ft.ButtonStyle(
+                                    bgcolor="#DC2626",
+                                    color=ft.Colors.WHITE,
+                                    shape=ft.RoundedRectangleBorder(radius=8),
+                                    padding=ft.Padding(8, 0, 10, 0),
+                                ),
+                                on_click=lambda e: self._action_delete_selected(),
+                            ),
+                            ft.OutlinedButton(
+                                "Bỏ chọn",
+                                icon=ft.Icons.DESELECT_OUTLINED,
+                                height=34,
+                                style=ft.ButtonStyle(
+                                    shape=ft.RoundedRectangleBorder(radius=8),
+                                    side=ft.BorderSide(1, "#CBD5E1"),
+                                    color="#64748B",
+                                    padding=ft.Padding(8, 0, 10, 0),
+                                ),
+                                on_click=lambda e: self._action_deselect_all(),
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
+        self.list_table_column = ft.Column(spacing=8)
+
+        view = ft.Container(
+            expand=True,
+            padding=ft.Padding(16, 12, 16, 12),
+            content=ft.Column(
+                expand=True,
+                scroll=ft.ScrollMode.AUTO,
+                spacing=12,
+                controls=[
+                    ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        controls=[
+                            ft.Column(
+                                spacing=2,
+                                controls=[
+                                    ft.Text("Danh sách dự toán", size=22, weight=ft.FontWeight.W_800, color="#0F172A"),
+                                    self.list_subtitle_text,
+                                ],
+                            ),
+                            ft.IconButton(
+                                icon=ft.Icons.REFRESH,
+                                tooltip="Tải lại danh sách",
+                                on_click=lambda e: self._refresh_list_view(),
+                            ),
+                        ],
+                    ),
+                    ft.Row([self.list_search]),
+                    self.normal_header_row,
+                    self.select_header_row,
+                    self.selection_bar,
+                    self.list_table_column,
+                ],
+            ),
+        )
+        return view
+
+    def _refresh_list_view(self):
+        history = self._get_filtered_list_history()
+        total_records = len(history)
+        selected_count = len(self.selected_quote_ids)
+
+        self.list_count_text.value = f"Tổng: {total_records} bản ghi"
+        self.select_all_cb.value = (total_records > 0 and selected_count == total_records)
+        self.select_count_text.value = f"Đã chọn: {selected_count}/{total_records}"
+        self.select_header_row.visible = self.select_mode
+        self.normal_header_row.visible = not self.select_mode
+        self.selection_bar.visible = (self.select_mode and selected_count > 0)
+        self.list_subtitle_text.value = (
+            "Tích chọn từng mục hoặc chọn tất cả để thao tác"
+            if self.select_mode
+            else "Bảng tổng hợp hồ sơ dự toán và thông số kỹ thuật"
+        )
+        self.list_table_column.controls.clear()
+
+        if not history:
+            self.list_table_column.controls.append(
+                ft.Container(
+                    padding=24,
+                    alignment=ft.Alignment(0, 0),
+                    content=ft.Column(
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=8,
+                        controls=[
+                            ft.Icon(ft.Icons.INBOX_OUTLINED, size=40, color="#94A3B8"),
+                            ft.Text("Chưa có dự toán nào trong danh sách", color="#64748B", size=14),
+                            ft.FilledButton("Tạo dự toán ngay", icon=ft.Icons.ADD, on_click=lambda e: self._go_tab(0)),
+                        ],
+                    ),
+                )
+            )
+        else:
+            for item in history:
+                card = self._build_list_item_card(item)
+                self.list_table_column.controls.append(card)
+
+        if hasattr(self, "page") and getattr(self.page, "_Control__page", None):
+            self.page.update()
+
+    def _build_list_item_card(self, item: Dict):
+        item_id = item["id"]
+        is_selected = item_id in self.selected_quote_ids
+        payload = item.get("payload") or {}
+        unit_str = "Hệ thống"
+        date_str = str(item.get("created_at") or "")[:10]
+        number_str = item.get("quote_number") or f"DT-{item_id:03d}"
+        module_str = item.get("module_code") or payload.get("module_code") or "P10"
+        cust_name = item.get("customer_name") or payload.get("customer_name") or "Khách lẻ"
+        proj_name = item.get("project_name") or payload.get("project_name") or "Màn hình LED"
+        w = item.get("width_m") or payload.get("width_m") or 0
+        h = item.get("height_m") or payload.get("height_m") or 0
+        explanation = f"{proj_name} - KH: {cust_name} ({w}m × {h}m)"
+        total_val = item.get("total", 0)
+
+        # Đổi viền và nền khi được chọn trong select_mode
+        if self.select_mode and is_selected:
+            bg_card = "#EFF6FF"
+            border_card = ft.Border.all(2, "#2563EB")
+        else:
+            bg_card = ft.Colors.WHITE
+            border_card = ft.Border.all(1, "#E2E8F0")
+
+        # Hàng 1 bên trái: Có checkbox chỉ khi đang ở select_mode
+        h1_left_controls = []
+        if self.select_mode:
+            h1_left_controls.append(
+                ft.Checkbox(
+                    value=is_selected,
+                    active_color="#2563EB",
+                    on_change=lambda e, i_id=item_id: self._toggle_select_item(i_id, e.control.value),
+                )
+            )
+        h1_left_controls.extend([
+            ft.Container(
+                padding=ft.Padding(8, 2, 8, 2),
+                bgcolor="#E8EEFF" if not (self.select_mode and is_selected) else "#DBEAFE",
+                border_radius=6,
+                content=ft.Text(number_str, size=12, weight=ft.FontWeight.W_700, color="#2563EB"),
+            ),
+            ft.Text(f"Đơn vị: {unit_str}", size=11, color="#64748B"),
+        ])
+
+        return ft.Container(
+            padding=12,
+            bgcolor=bg_card,
+            border_radius=12,
+            border=border_card,
+            content=ft.Column(
+                spacing=8,
+                controls=[
+                    # Hàng 1: Số & Ngày (+ Checkbox khi bật chế độ chọn)
+                    ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        controls=[
+                            ft.Row(
+                                spacing=8,
+                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                controls=h1_left_controls,
+                            ),
+                            ft.Text(f"Ngày: {date_str}", size=11, color="#64748B"),
+                        ],
+                    ),
+                    # Hàng 2: Tên module & Giá
+                    ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        controls=[
+                            ft.Row(
+                                spacing=6,
+                                controls=[
+                                    ft.Icon(ft.Icons.GRID_VIEW, size=16, color="#2563EB"),
+                                    ft.Text(f"Tên module: {module_str}", size=14, weight=ft.FontWeight.W_700, color="#0F172A"),
+                                ],
+                            ),
+                            ft.Text(f"{total_val:,.0f} đ".replace(",", "."), size=14, weight=ft.FontWeight.W_800, color="#2563EB"),
+                        ],
+                    ),
+                    # Hàng 3: Diễn giải
+                    ft.Row(
+                        vertical_alignment=ft.CrossAxisAlignment.START,
+                        spacing=6,
+                        controls=[
+                            ft.Icon(ft.Icons.DESCRIPTION_OUTLINED, size=15, color="#64748B"),
+                            ft.Text(f"Diễn giải: {explanation}", size=12, color="#475569", expand=True),
+                        ],
+                    ),
+                    # Hàng 4: Nút Xem / Sửa nhanh
+                    ft.Divider(height=1, color="#E2E8F0" if not (self.select_mode and is_selected) else "#BFDBFE"),
+                    ft.Row(
+                        alignment=ft.MainAxisAlignment.END,
+                        spacing=6,
+                        controls=[
+                            ft.TextButton(
+                                "Xem chi tiết",
+                                icon=ft.Icons.VISIBILITY_OUTLINED,
+                                on_click=lambda e, i_id=item_id: self._load_history(i_id),
+                            ),
+                            ft.TextButton(
+                                "Sao chép",
+                                icon=ft.Icons.CONTENT_COPY_OUTLINED,
+                                on_click=lambda e, i_id=item_id: self._clone_history(i_id),
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
 
     def _load_history(self, history_id: int):
         item = self.db.get_quote_history(history_id)
@@ -589,46 +1234,749 @@ class MainView:
         self.message.value = "Đã nhân bản báo giá. Bạn có thể chỉnh sửa rồi lưu thành báo giá mới."
         self.message.color = ft.Colors.GREEN_700
 
-    def _build_inventory_view(self):
-        self.inventory_category = ft.Dropdown(
-            label="Lọc theo nhóm",
-            value="all",
-            width=150,
-            options=[
-                ft.dropdown.Option("all", "Tất cả"),
-                ft.dropdown.Option("module", "Module LED"),
-                ft.dropdown.Option("power", "Nguồn"),
-                ft.dropdown.Option("card", "Card thu"),
-                ft.dropdown.Option("processor", "Bộ xử lý"),
-                ft.dropdown.Option("frame", "Khung"),
-                ft.dropdown.Option("service", "Dịch vụ"),
-            ],
-            on_select=lambda e: self._refresh_inventory(),
-            **InputPanel._dropdown_style(),
+    # ------------------------------------------------------------------
+    # [UI] Thanh bottom bar cố định phía dưới (chuẩn theo mẫu UI)
+    # ------------------------------------------------------------------
+    def _build_apply_bar(self):
+        self.apply_mode_text = ft.Text("Chế độ tự động", size=11, color="#64748B")
+        self.apply_size_text = ft.Text("2.560 × 640 mm", size=12, weight=ft.FontWeight.W_700, color="#0F172A")
+        return ft.Container(
+            padding=ft.Padding(14, 10, 14, 10),
+            bgcolor=ft.Colors.WHITE,
+            border=ft.Border.all(1, "#E2E8F0"),
+            border_radius=14,
+            content=ft.Column(
+                spacing=6,
+                controls=[
+                    ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        controls=[self.apply_mode_text, self.apply_size_text],
+                    ),
+                    ft.FilledButton(
+                        "Áp dụng cấu hình",
+                        icon=ft.Icons.ARROW_FORWARD,
+                        height=46,
+                        expand=True,
+                        on_click=lambda e: self._go_tab(1),
+                        style=InputPanel._primary_button_style(),
+                    ),
+                    ft.Text(
+                        "Rà soát các mục chưa thiết lập trước khi chuyển sang bảng dự toán.",
+                        size=10,
+                        color="#64748B",
+                        text_align=ft.TextAlign.CENTER,
+                    ),
+                ],
+            ),
         )
+
+    def _build_total_bar(self, button_text: str, button_icon, on_click, outlined: bool = False):
+        total_text = ft.Text("0 đ", size=22, weight=ft.FontWeight.W_800, color="#0F172A")
+        count_text = ft.Text("", size=12, color="#64748B")
+        self._total_texts.append((total_text, count_text))
+        if outlined:
+            button = ft.OutlinedButton(
+                button_text,
+                icon=button_icon,
+                height=44,
+                expand=True,
+                on_click=on_click,
+                style=ft.ButtonStyle(
+                    shape=ft.RoundedRectangleBorder(radius=12),
+                    side=ft.BorderSide(1, "#CBD5E1"),
+                    color="#2563EB",
+                ),
+            )
+        else:
+            button = ft.FilledButton(
+                button_text,
+                icon=button_icon,
+                height=44,
+                expand=True,
+                on_click=on_click,
+                style=InputPanel._primary_button_style(),
+            )
+        return ft.Container(
+            padding=ft.Padding(14, 10, 14, 10),
+            bgcolor=ft.Colors.WHITE,
+            border=ft.Border.all(1, "#E2E8F0"),
+            border_radius=14,
+            content=ft.Column(
+                spacing=8,
+                controls=[
+                    ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=ft.CrossAxisAlignment.END,
+                        controls=[
+                            ft.Column(
+                                spacing=0,
+                                controls=[
+                                    ft.Text("Tổng dự toán tạm tính", size=12, color="#64748B"),
+                                    total_text,
+                                ],
+                            ),
+                            count_text,
+                        ],
+                    ),
+                    ft.Row([button]),
+                ],
+            ),
+        )
+
+    def _refresh_total_bars(self):
+        pricing = (self.quote_data or {}).get("pricing") or {}
+        total = pricing.get("final_total", 0)
+        count = len(self.input_panel.additional_items) if hasattr(self, "input_panel") else 0
+        for total_text, count_text in self._total_texts:
+            total_text.value = f"{total:,.0f} đ".replace(",", ".")
+            count_text.value = f"{count} hạng mục thêm"
+        if hasattr(self, "apply_size_text") and hasattr(self, "input_panel"):
+            form = self.input_panel.get_values()
+            w_m = float(form.get("width_m", 0) or 0)
+            h_m = float(form.get("height_m", 0) or 0)
+            self.apply_size_text.value = f"{int(w_m*1000):,} × {int(h_m*1000):,} mm".replace(",", ".")
+            if hasattr(self, "apply_mode_text"):
+                mode_str = "Chế độ thủ công" if form.get("config_mode") == "manual" else "Chế độ tự động"
+                self.apply_mode_text.value = mode_str
+
+    @staticmethod
+    def _money(value) -> str:
+        return f"{value:,.0f}".replace(",", ".")
+
+    # ------------------------------------------------------------------
+    # [UI] Tab "Linh kiện" – Danh mục linh kiện (tìm kiếm, lọc nhóm, thêm vào dự toán)
+    # ------------------------------------------------------------------
+    CATEGORY_LABELS = [
+        ("module", "Module LED"),
+        ("power", "Nguồn"),
+        ("card", "Card thu"),
+        ("processor", "Bộ xử lý"),
+        ("frame", "Khung"),
+        ("service", "Dịch vụ"),
+    ]
+    CATEGORY_ICONS = {
+        "module": ft.Icons.GRID_VIEW,
+        "power": ft.Icons.BOLT,
+        "card": ft.Icons.MEMORY,
+        "processor": ft.Icons.DEVELOPER_BOARD,
+        "frame": ft.Icons.CROP_FREE,
+        "service": ft.Icons.CONSTRUCTION,
+    }
+
+    def _create_quote_and_go_list(self, e=None):
+        """Tạo báo giá từ cấu hình hiện tại, lưu vào DB và chuyển thẳng sang tab Danh sách."""
+        if not self.quote_data:
+            self.recalculate()
+        if not self.quote_data:
+            if hasattr(self, "page") and self.page:
+                self.page.snack_bar = ft.SnackBar(ft.Text("Chưa có dữ liệu dự toán để tạo!"), bgcolor="#DC2626")
+                self.page.snack_bar.open = True
+                self.page.update()
+            return
+
+        form = self.input_panel.get_values()
+        name = form.get("project_name") or f"Báo giá {form.get('module_code') or 'LED'}"
+        customer = form.get("customer_name") or "Khách lẻ"
+        total_val = self.quote_data.get("pricing", {}).get("final_total", 0)
+
+        history_id = self.db.save_quote_history(
+            quote_name=name,
+            customer_name=customer,
+            payload=form,
+            total=total_val,
+            status="Nháp",
+        )
+        saved = self.db.get_quote_history(history_id)
+        if saved:
+            self.quote_data["quote_number"] = saved.get("quote_number")
+
+        self.selected_quote_ids.clear()
+        self.select_mode = False
+        self._refresh_history()
+        self._refresh_list_view()
+        self._go_tab(3)
+
+        if hasattr(self, "page") and self.page:
+            q_num = saved.get("quote_number") if saved else f"DT-{history_id:03d}"
+            self.page.snack_bar = ft.SnackBar(
+                ft.Text(f"Đã tạo báo giá {q_num} thành công và lưu vào Danh sách!"),
+                bgcolor="#16A34A",
+            )
+            self.page.snack_bar.open = True
+            self.page.update()
+
+    def _build_inventory_view(self):
         self.inventory_search = ft.TextField(
-            label="Tìm kiếm vật tư",
-            hint_text="Nhập tên, mã vật tư hoặc NCC",
+            hint_text="Tên linh kiện hoặc thông số...",
             prefix_icon=ft.Icons.SEARCH,
             expand=True,
             on_change=self._refresh_inventory,
             **InputPanel._field_style(),
         )
+        self.inventory_search.bgcolor = ft.Colors.WHITE
+        self.inventory_chips = ft.Row(wrap=True, spacing=8, run_spacing=8)
+        self.inventory_count = ft.Text("", size=12, weight=ft.FontWeight.W_600, color="#0F172A")
         self.inventory_rows = ft.Column(spacing=10)
+        self.inventory_project = ft.Text("Chưa đặt tên dự án", size=13, weight=ft.FontWeight.W_600, color="#0F172A")
+        self.inventory_project_sub = ft.Text("", size=11, color="#64748B")
         add_button = ft.IconButton(
             icon=ft.Icons.ADD,
-            tooltip="Thêm vật tư mới",
+            tooltip="Thêm vật tư mới vào danh mục",
             icon_color=ft.Colors.WHITE,
-            bgcolor="#006494",
-            width=40,
-            height=40,
-            style=ft.ButtonStyle(
-                shape=ft.CircleBorder(),
-                padding=0,
-            ),
+            bgcolor="#2563EB",
+            width=36,
+            height=36,
+            style=ft.ButtonStyle(shape=ft.CircleBorder(), padding=0),
             on_click=self._open_add_product,
         )
+        create_button = ft.FilledButton(
+            "Tạo",
+            icon=ft.Icons.CHECK,
+            height=36,
+            style=ft.ButtonStyle(
+                bgcolor="#2563EB",
+                color=ft.Colors.WHITE,
+                shape=ft.RoundedRectangleBorder(radius=10),
+                padding=ft.Padding(12, 0, 14, 0),
+            ),
+            on_click=self._create_quote_and_go_list,
+        )
+        project_banner = ft.Container(
+            padding=ft.Padding(12, 10, 12, 10),
+            bgcolor="#E8EEFF",
+            border=ft.Border.all(1, "#C7D6FE"),
+            border_radius=12,
+            ink=True,
+            on_click=lambda e: self._go_tab(2),
+            content=ft.Row(
+                spacing=10,
+                controls=[
+                    ft.Icon(ft.Icons.DESCRIPTION_OUTLINED, color="#2563EB", size=20),
+                    ft.Column(
+                        spacing=0,
+                        expand=True,
+                        controls=[self.inventory_project, self.inventory_project_sub],
+                    ),
+                    ft.Icon(ft.Icons.CHEVRON_RIGHT, color="#2563EB"),
+                ],
+            ),
+        )
+        inv_total_text = ft.Text("0 đ", size=22, weight=ft.FontWeight.W_800, color="#0F172A")
+        inv_count_text = ft.Text("", size=12, color="#64748B")
+        self._total_texts.append((inv_total_text, inv_count_text))
+        total_bar = ft.Container(
+            padding=ft.Padding(14, 10, 14, 10),
+            bgcolor=ft.Colors.WHITE,
+            border=ft.Border.all(1, "#E2E8F0"),
+            border_radius=14,
+            content=ft.Column(
+                spacing=8,
+                controls=[
+                    ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=ft.CrossAxisAlignment.END,
+                        controls=[
+                            ft.Column(
+                                spacing=0,
+                                controls=[
+                                    ft.Text("Tổng dự toán tạm tính", size=12, color="#64748B"),
+                                    inv_total_text,
+                                ],
+                            ),
+                            inv_count_text,
+                        ],
+                    ),
+                    ft.Row(
+                        spacing=8,
+                        controls=[
+                            ft.OutlinedButton(
+                                "Quay lại dự toán",
+                                icon=ft.Icons.ARROW_BACK,
+                                height=44,
+                                expand=True,
+                                style=ft.ButtonStyle(
+                                    shape=ft.RoundedRectangleBorder(radius=12),
+                                    side=ft.BorderSide(1, "#CBD5E1"),
+                                    color="#2563EB",
+                                ),
+                                on_click=lambda e: self._go_tab(0),
+                            ),
+                            ft.FilledButton(
+                                "Tạo báo giá",
+                                icon=ft.Icons.CHECK,
+                                height=44,
+                                expand=True,
+                                style=InputPanel._primary_button_style(),
+                                on_click=self._create_quote_and_go_list,
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
         view = ft.Container(
+            expand=True,
+            padding=ft.Padding(16, 12, 16, 8),
+            content=ft.Column(
+                expand=True,
+                spacing=10,
+                controls=[
+                    ft.Column(
+                        expand=True,
+                        scroll=ft.ScrollMode.AUTO,
+                        spacing=12,
+                        controls=[
+                            ft.Row(
+                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                controls=[
+                                    ft.Column(
+                                        spacing=2,
+                                        expand=True,
+                                        controls=[
+                                            ft.Text("Danh mục linh kiện", size=22, weight=ft.FontWeight.W_800, color="#0F172A"),
+                                            ft.Text("Tìm đúng linh kiện, thêm nhanh vào dự toán.", size=12, color="#64748B"),
+                                        ],
+                                    ),
+                                    ft.Row(
+                                        spacing=6,
+                                        controls=[
+                                            add_button,
+                                            create_button,
+                                        ],
+                                    ),
+                                ],
+                            ),
+                            project_banner,
+                            self.inventory_search,
+                            self.inventory_chips,
+                            self.inventory_count,
+                            self.inventory_rows,
+                        ],
+                    ),
+                    total_bar,
+                ],
+            ),
+        )
+        self._refresh_inventory()
+        return view
+
+    def _set_inventory_filter(self, key: str):
+        self._inv_filter = key
+        self._inv_selected = None
+        self._inv_qty = 1
+        self._refresh_inventory()
+
+    def _toggle_inventory_item(self, code: str):
+        if self._inv_selected == code:
+            self._inv_selected = None
+        else:
+            self._inv_selected = code
+            self._inv_qty = 1
+        self._refresh_inventory()
+
+    def _change_inventory_qty(self, delta: int):
+        self._inv_qty = max(1, self._inv_qty + delta)
+        self._refresh_inventory()
+
+    def _add_to_estimate(self, product: Dict[str, Any]):
+        self.input_panel.add_additional(product["name"], self._inv_qty, product["unit_price"])
+        self.message.value = f"Đã thêm {self._inv_qty} × {product['name']} vào dự toán."
+        self.message.color = ft.Colors.GREEN_700
+        self._inv_selected = None
+        self._inv_qty = 1
+        self.recalculate()
+        self._refresh_inventory()
+        self.page.snack_bar = ft.SnackBar(ft.Text(self.message.value), bgcolor="#2563EB")
+        self.page.snack_bar.open = True
+        self.page.update()
+
+    def _product_spec_line(self, product: Dict[str, Any]) -> str:
+        spec = product.get("spec_json") or {}
+        parts = []
+        if isinstance(spec, dict):
+            if spec.get("pitch"):
+                parts.append(str(spec["pitch"]))
+            if spec.get("power_w"):
+                parts.append(f"{spec['power_w']} W")
+        parts.append(product["code"])
+        if product.get("supplier"):
+            parts.append(product["supplier"])
+        return " • ".join(parts)
+
+    def _refresh_inventory(self, e=None):
+        search = (self.inventory_search.value or "").strip().lower()
+        all_products = self.db.list_products(category=None)
+        counts = {"all": len(all_products)}
+        for product in all_products:
+            counts[product["category"]] = counts.get(product["category"], 0) + 1
+
+        # Chip nhóm
+        chips = [("all", "Tất cả")] + [c for c in self.CATEGORY_LABELS if counts.get(c[0])]
+        self.inventory_chips.controls = [
+            ft.Container(
+                padding=ft.Padding(14, 8, 14, 8),
+                border_radius=10,
+                ink=True,
+                bgcolor="#2563EB" if self._inv_filter == key else ft.Colors.WHITE,
+                border=ft.Border.all(1, "#2563EB" if self._inv_filter == key else "#E2E8F0"),
+                on_click=lambda e, k=key: self._set_inventory_filter(k),
+                content=ft.Text(
+                    f"{label} · {counts.get(key, 0)}",
+                    size=12,
+                    weight=ft.FontWeight.W_600,
+                    color=ft.Colors.WHITE if self._inv_filter == key else "#0F172A",
+                ),
+            )
+            for key, label in chips
+        ]
+
+        products = [p for p in all_products if self._inv_filter in ("all", p["category"])]
+        if search:
+            products = [
+                p for p in products
+                if search in p["name"].lower()
+                or search in p["code"].lower()
+                or search in (p.get("supplier") or "").lower()
+                or search in str(p.get("spec_json") or "").lower()
+            ]
+        self.inventory_count.value = f"{len(products)} linh kiện hiển thị"
+
+        form = self.input_panel.get_values() if hasattr(self, "input_panel") else {}
+        self.inventory_project.value = form.get("project_name") or "Chưa đặt tên dự án"
+        self.inventory_project_sub.value = (
+            f"{form.get('width_m', '-')}m × {form.get('height_m', '-')}m • "
+            f"{len(self.input_panel.additional_items)} hạng mục thêm"
+        ) if form else ""
+
+        self.inventory_rows.controls = []
+        if not products:
+            self.inventory_rows.controls.append(
+                ft.Container(
+                    padding=24,
+                    alignment=ft.Alignment(0, 0),
+                    content=ft.Column(
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=8,
+                        controls=[
+                            ft.Icon(ft.Icons.SEARCH_OFF, size=36, color="#64748B"),
+                            ft.Text("Không tìm thấy vật tư phù hợp", color="#64748B", size=14),
+                        ],
+                    ),
+                )
+            )
+        for product in products:
+            self.inventory_rows.controls.append(self._build_product_card(product))
+        self._refresh_total_bars()
+        self.page.update()
+
+    def _build_product_card(self, product: Dict[str, Any]):
+        selected = self._inv_selected == product["code"]
+        in_estimate = self.input_panel.additional_qty_by_name(product["name"])
+        icon = self.CATEGORY_ICONS.get(product["category"], ft.Icons.INVENTORY_2_OUTLINED)
+
+        if in_estimate:
+            status = ft.Text(f"✓ Đã có {in_estimate:g}", size=11, weight=ft.FontWeight.W_600, color="#16A34A")
+        else:
+            status = ft.Container()
+        action = ft.FilledTonalButton(
+            "Đang chọn" if selected else "Chọn",
+            icon=ft.Icons.CHECK if selected else ft.Icons.ADD,
+            height=34,
+            style=ft.ButtonStyle(
+                bgcolor="#E8EEFF",
+                color="#2563EB",
+                shape=ft.RoundedRectangleBorder(radius=10),
+                padding=ft.Padding(10, 0, 10, 0),
+            ),
+            on_click=lambda e, c=product["code"]: self._toggle_inventory_item(c),
+        )
+
+        header = ft.Row(
+            spacing=12,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+            controls=[
+                ft.Container(
+                    width=40,
+                    height=40,
+                    border_radius=10,
+                    bgcolor="#F1F5F9",
+                    alignment=ft.Alignment(0, 0),
+                    content=ft.Icon(icon, size=20, color="#334155"),
+                ),
+                ft.Column(
+                    spacing=2,
+                    expand=True,
+                    controls=[
+                        ft.Text(product["name"], size=15, weight=ft.FontWeight.W_700, color="#0F172A"),
+                        ft.Text(self._product_spec_line(product), size=11, color="#64748B"),
+                    ],
+                ),
+            ],
+        )
+        price_row = ft.Row(
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[
+                ft.Text(
+                    f"{self._money(product['unit_price'])} đ/{product['unit']}",
+                    size=16,
+                    weight=ft.FontWeight.W_800,
+                    color="#0F172A",
+                ),
+                ft.Row(spacing=8, controls=[status, action]),
+            ],
+        )
+        controls = [header, price_row]
+
+        if selected:
+            line_total = self._inv_qty * product["unit_price"]
+            price_field = ft.TextField(
+                value=str(int(product["unit_price"])),
+                label="Đơn giá (đ)",
+                width=130,
+                keyboard_type=ft.KeyboardType.NUMBER,
+                **InputPanel._field_style(),
+            )
+            controls += [
+                ft.Divider(color="#E2E8F0", height=1),
+                ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Text("Số lượng thêm", size=13, color="#0F172A"),
+                        ft.Container(
+                            border=ft.Border.all(1, "#CBD5E1"),
+                            border_radius=10,
+                            content=ft.Row(
+                                spacing=0,
+                                controls=[
+                                    ft.IconButton(ft.Icons.REMOVE, icon_size=18, on_click=lambda e: self._change_inventory_qty(-1)),
+                                    ft.Text(str(self._inv_qty), size=15, weight=ft.FontWeight.W_700, width=36, text_align=ft.TextAlign.CENTER),
+                                    ft.IconButton(ft.Icons.ADD, icon_size=18, on_click=lambda e: self._change_inventory_qty(1)),
+                                ],
+                            ),
+                        ),
+                    ],
+                ),
+                ft.FilledButton(
+                    f"Thêm vào dự toán · {self._money(line_total)} đ",
+                    icon=ft.Icons.ADD,
+                    height=44,
+                    expand=True,
+                    style=InputPanel._primary_button_style(),
+                    on_click=lambda e, p=product: self._add_to_estimate(p),
+                ),
+                ft.Text(
+                    "Linh kiện được thêm vào mục Hạng mục bổ sung của dự toán.",
+                    size=11,
+                    color="#B45309",
+                ),
+                ft.Divider(color="#E2E8F0", height=1),
+                ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        price_field,
+                        ft.Row(
+                            spacing=4,
+                            controls=[
+                                ft.IconButton(
+                                    icon=ft.Icons.CHECK,
+                                    icon_color="#2563EB",
+                                    tooltip="Cập nhật giá nhanh",
+                                    style=ft.ButtonStyle(bgcolor="#E8EEFF", shape=ft.CircleBorder()),
+                                    on_click=lambda e, code=product["code"], field=price_field: self._update_price(code, field),
+                                ),
+                                ft.IconButton(
+                                    icon=ft.Icons.EDIT_OUTLINED,
+                                    icon_color="#00687A",
+                                    tooltip="Chỉnh sửa thông tin",
+                                    style=ft.ButtonStyle(bgcolor="#E8EEFF", shape=ft.CircleBorder()),
+                                    on_click=lambda e, p=product: self._open_edit_product(p),
+                                ),
+                                ft.IconButton(
+                                    icon=ft.Icons.DELETE_OUTLINE,
+                                    icon_color="#BA1A1A",
+                                    tooltip="Xóa vật tư",
+                                    style=ft.ButtonStyle(bgcolor="#FFDAD6", shape=ft.CircleBorder()),
+                                    on_click=lambda e, code=product["code"]: self._delete_product(code),
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+            ]
+
+        return ft.Container(
+            padding=14,
+            bgcolor=ft.Colors.WHITE,
+            border_radius=14,
+            border=ft.Border.all(1.5 if selected else 1, "#2563EB" if selected else "#E2E8F0"),
+            content=ft.Column(spacing=10, controls=controls),
+        )
+
+    # ------------------------------------------------------------------
+    # [UI] Tab "Tổng hợp" – Tổng hợp dự toán (chi phí, chiết khấu, VAT, ghi chú, xuất báo giá)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _summary_row(label: str, value_text: ft.Text, bold: bool = False):
+        return ft.Row(
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            controls=[
+                ft.Text(label, size=13, weight=ft.FontWeight.W_700 if bold else ft.FontWeight.W_400, color="#0F172A"),
+                value_text,
+            ],
+        )
+
+    def _build_summary_view(self):
+        def money_text(size=13, bold=False, color="#0F172A"):
+            return ft.Text("0 đ", size=size, weight=ft.FontWeight.W_800 if bold else ft.FontWeight.W_600, color=color)
+
+        self.sum_code = ft.Text("DT-MỚI", size=12, color="#64748B")
+        self.sum_name = ft.Text("Chưa đặt tên dự án", size=18, weight=ft.FontWeight.W_800, color="#0F172A")
+        self.sum_total = ft.Text("0 đ", size=30, weight=ft.FontWeight.W_800, color="#2563EB")
+        self.sum_total_note = ft.Text("", size=12, color="#64748B")
+        self.sum_subtotal = money_text(bold=True)
+        self.sum_subtotal_note = ft.Text("", size=12, color="#64748B")
+        self.sum_profit = money_text()
+        self.sum_transport = money_text()
+        self.sum_discount_value = money_text()
+        self.sum_before_vat = money_text(bold=True)
+        self.sum_vat_value = money_text(bold=True)
+        self.sum_grand = money_text(size=20, bold=True, color="#2563EB")
+
+        field_kwargs = InputPanel._field_style()
+        self.sum_install = ft.TextField(
+            label="Chi phí thi công (đ/m²)",
+            keyboard_type=ft.KeyboardType.NUMBER,
+            prefix_icon=ft.Icons.CONSTRUCTION,
+            on_change=self._on_summary_edit,
+            **field_kwargs,
+        )
+        self.sum_discount = ft.TextField(
+            label="Chiết khấu (%)",
+            keyboard_type=ft.KeyboardType.NUMBER,
+            prefix_icon=ft.Icons.SELL_OUTLINED,
+            on_change=self._on_summary_edit,
+            **field_kwargs,
+        )
+        self.sum_vat = ft.TextField(
+            label="Thuế GTGT (%)",
+            keyboard_type=ft.KeyboardType.NUMBER,
+            width=130,
+            on_change=self._on_summary_edit,
+            **field_kwargs,
+        )
+        self.sum_notes = ft.TextField(
+            label="Ghi chú báo giá",
+            hint_text="Cần khảo sát vị trí lắp đặt và xác nhận phương án điều khiển trước khi chốt.",
+            multiline=True,
+            min_lines=2,
+            max_lines=5,
+            on_change=lambda e: self.recalculate(),
+            **field_kwargs,
+        )
+        self.sum_format = ft.Dropdown(
+            value="pdf",
+            width=130,
+            options=[ft.dropdown.Option("pdf", "PDF"), ft.dropdown.Option("excel", "Excel")],
+            **InputPanel._dropdown_style(),
+        )
+        self.sum_message = ft.Text("", size=12, color=ft.Colors.GREEN_700)
+
+        def card(controls, bgcolor=ft.Colors.WHITE, border="#E2E8F0"):
+            return ft.Container(
+                padding=16,
+                bgcolor=bgcolor,
+                border=ft.Border.all(1, border),
+                border_radius=14,
+                content=ft.Column(spacing=12, controls=controls),
+            )
+
+        header_card = card([
+            ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    self.sum_code,
+                    ft.Container(
+                        padding=ft.Padding(8, 2, 8, 2),
+                        border_radius=6,
+                        bgcolor="#F1F5F9",
+                        content=ft.Text("Nháp", size=11, color="#64748B"),
+                    ),
+                ],
+            ),
+            self.sum_name,
+        ])
+        total_card = card(
+            [
+                ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    controls=[
+                        ft.Text("TỔNG DỰ TOÁN", size=11, weight=ft.FontWeight.W_700, color="#2563EB"),
+                        ft.Icon(ft.Icons.RECEIPT_LONG_OUTLINED, color="#2563EB", size=18),
+                    ],
+                ),
+                self.sum_total,
+                self.sum_total_note,
+            ],
+            bgcolor="#E8EEFF",
+            border="#C7D6FE",
+        )
+        cost_card = card([
+            ft.Text("Các khoản chi phí", size=17, weight=ft.FontWeight.W_800, color="#0F172A"),
+            self._summary_row("Tạm tính linh kiện", self.sum_subtotal, bold=True),
+            ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    self.sum_subtotal_note,
+                    ft.TextButton("Chỉnh linh kiện ›", on_click=lambda e: self._go_tab(1)),
+                ],
+            ),
+            ft.Divider(color="#E2E8F0", height=1),
+            self.sum_install,
+            self.sum_discount,
+            self._summary_row("Lợi nhuận", self.sum_profit),
+            self._summary_row("Vận chuyển", self.sum_transport),
+            self._summary_row("Chiết khấu", self.sum_discount_value),
+            ft.Divider(color="#E2E8F0", height=1),
+            self._summary_row("Trước thuế", self.sum_before_vat, bold=True),
+            ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[self.sum_vat, self.sum_vat_value],
+            ),
+            ft.Divider(color="#E2E8F0", height=1),
+            self._summary_row("Tổng cộng", self.sum_grand, bold=True),
+        ])
+        notes_card = card([self.sum_notes])
+        export_row = ft.Row(
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[ft.Text("Định dạng báo giá", size=13, color="#64748B"), self.sum_format],
+        )
+        export_button = ft.FilledButton(
+            "Xuất báo giá",
+            icon=ft.Icons.DOWNLOAD,
+            height=48,
+            expand=True,
+            style=InputPanel._primary_button_style(),
+            on_click=self._on_summary_export,
+        )
+        save_button = ft.OutlinedButton(
+            "Lưu vào danh sách",
+            icon=ft.Icons.SAVE_OUTLINED,
+            height=48,
+            expand=True,
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=12),
+                side=ft.BorderSide(1, "#CBD5E1"),
+                color="#2563EB",
+            ),
+            on_click=self._create_quote_and_go_list,
+        )
+        return ft.Container(
             expand=True,
             padding=ft.Padding(16, 12, 16, 16),
             content=ft.Column(
@@ -640,206 +1988,99 @@ class MainView:
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         controls=[
-                            ft.Row(
-                                expand=True,
+                            ft.Column(
+                                spacing=2,
                                 controls=[
-                                    ft.Container(
-                                        width=4,
-                                        height=24,
-                                        bgcolor="#006494",
-                                        border_radius=2,
-                                    ),
-                                    ft.Column(
-                                        spacing=1,
-                                        expand=True,
-                                        controls=[
-                                            ft.Text("Danh mục vật tư & Đơn giá", size=18, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True),
-                                            ft.Text("Quản lý bảng giá linh kiện LED", size=12, color="#72777F", no_wrap=True),
-                                        ],
-                                    ),
+                                    ft.Text("Tổng hợp dự toán", size=22, weight=ft.FontWeight.W_800, color="#0F172A"),
+                                    ft.Text("Rà soát chi phí trước khi lưu và xuất báo giá.", size=12, color="#64748B"),
                                 ],
                             ),
-                            add_button,
+                            ft.FilledButton(
+                                "Tạo báo giá",
+                                icon=ft.Icons.CHECK,
+                                height=36,
+                                style=ft.ButtonStyle(
+                                    bgcolor="#2563EB",
+                                    color=ft.Colors.WHITE,
+                                    shape=ft.RoundedRectangleBorder(radius=10),
+                                    padding=ft.Padding(12, 0, 14, 0),
+                                ),
+                                on_click=self._create_quote_and_go_list,
+                            ),
                         ],
                     ),
-                    ft.Row([self.inventory_search, self.inventory_category], spacing=8, wrap=True),
-                    self.inventory_rows,
+                    header_card,
+                    total_card,
+                    cost_card,
+                    notes_card,
+                    ft.Text(
+                        "Dữ liệu minh họa • Chưa phải báo giá chính thức",
+                        size=11,
+                        color="#B45309",
+                    ),
+                    export_row,
+                    ft.Row([export_button]),
+                    ft.Row([save_button]),
+                    self.sum_message,
+                    ft.Text("Chi tiết báo giá", size=17, weight=ft.FontWeight.W_800, color="#0F172A"),
+                    self.preview_panel,
                 ],
             ),
         )
-        self._refresh_inventory()
-        return view
 
-    def _refresh_inventory(self, e=None):
-        category = self.inventory_category.value
-        search = (self.inventory_search.value or "").strip().lower()
-        products = self.db.list_products(category=None if category == "all" else category)
-        if search:
-            products = [
-                product for product in products
-                if search in product["name"].lower()
-                or search in product["code"].lower()
-                or search in (product.get("supplier") or "").lower()
-            ]
-        self.inventory_rows.controls = []
+    def _sync_summary_fields(self):
+        """Đồng bộ các ô nhập ở tab Tổng hợp từ form Lập dự toán."""
+        panel = self.input_panel
+        self.sum_install.value = panel.install_price_input.value
+        self.sum_discount.value = f"{panel.discount_slider.value:g}"
+        self.sum_vat.value = panel.vat_input.value
 
-        if not products:
-            self.inventory_rows.controls.append(
-                ft.Card(
-                    elevation=0,
-                    bgcolor=ft.Colors.WHITE,
-                    shape=ft.RoundedRectangleBorder(
-                        radius=16,
-                        side=ft.BorderSide(width=1, color="#E0E2EC"),
-                    ),
-                    content=ft.Container(
-                        padding=24,
-                        alignment=ft.Alignment(0, 0),
-                        content=ft.Column(
-                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                            spacing=8,
-                            controls=[
-                                ft.Icon(ft.Icons.SEARCH_OFF, size=36, color="#72777F"),
-                                ft.Text("Không tìm thấy vật tư phù hợp", color="#72777F", size=14),
-                            ],
-                        ),
-                    ),
-                )
-            )
+    def _on_summary_edit(self, e):
+        panel = self.input_panel
+        install = (self.sum_install.value or "0").strip()
+        panel.install_price_input.value = install or "0"
+        try:
+            panel.include_install.value = float(install.replace(",", ".")) > 0
+        except ValueError:
+            pass
+        panel.install_price_input.disabled = not panel.include_install.value
+        try:
+            panel.discount_slider.value = min(100.0, max(0.0, float((self.sum_discount.value or "0").replace(",", "."))))
+        except ValueError:
+            pass
+        panel.vat_input.value = (self.sum_vat.value or "0").strip()
+        self.recalculate()
+
+    def _on_summary_export(self, e):
+        if self.sum_format.value == "excel":
+            self.on_export_excel(e)
         else:
-            cat_labels = {
-                "module": "Module LED",
-                "power": "Nguồn",
-                "card": "Card thu",
-                "processor": "Bộ xử lý",
-                "frame": "Khung",
-                "service": "Dịch vụ",
-            }
-            for product in products:
-                price_field = ft.TextField(
-                    value=str(int(product["unit_price"])),
-                    label="Đơn giá (đ)",
-                    width=130,
-                    keyboard_type=ft.KeyboardType.NUMBER,
-                    **InputPanel._field_style(),
-                )
-                cat_name = cat_labels.get(product["category"], product["category"])
-                self.inventory_rows.controls.append(
-                    ft.Card(
-                        elevation=0,
-                        bgcolor=ft.Colors.WHITE,
-                        shape=ft.RoundedRectangleBorder(
-                            radius=16,
-                            side=ft.BorderSide(width=1, color="#E0E2EC"),
-                        ),
-                        content=ft.Container(
-                            padding=14,
-                            content=ft.Column(
-                                spacing=8,
-                                controls=[
-                                    ft.Row(
-                                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                        controls=[
-                                            ft.Row(
-                                                spacing=8,
-                                                controls=[
-                                                    ft.Container(
-                                                        padding=ft.Padding(8, 4, 8, 4),
-                                                        border_radius=8,
-                                                        bgcolor="#EDF0F5",
-                                                        content=ft.Text(cat_name, size=11, weight=ft.FontWeight.BOLD, color="#006494"),
-                                                    ),
-                                                    ft.Text(product["code"], weight=ft.FontWeight.BOLD, size=13, color="#006494"),
-                                                ],
-                                            ),
-                                            ft.Text(
-                                                f"{product['unit_price']:,.0f} đ / {product['unit']}",
-                                                weight=ft.FontWeight.BOLD,
-                                                size=14,
-                                                color="#191C1E",
-                                            ),
-                                        ],
-                                    ),
-                                    ft.Text(
-                                        product["name"],
-                                        weight=ft.FontWeight.BOLD,
-                                        size=14,
-                                        color="#191C1E",
-                                    ),
-                                    ft.Row(
-                                        wrap=True,
-                                        spacing=12,
-                                        controls=[
-                                            ft.Row(
-                                                spacing=4,
-                                                controls=[
-                                                    ft.Icon(ft.Icons.STOREFRONT_OUTLINED, size=14, color="#72777F"),
-                                                    ft.Text(f"NCC: {product.get('supplier') or 'Chưa rõ'}", size=12, color="#72777F"),
-                                                ],
-                                            ),
-                                            ft.Row(
-                                                spacing=4,
-                                                controls=[
-                                                    ft.Icon(ft.Icons.ACCESS_TIME, size=14, color="#72777F"),
-                                                    ft.Text(f"Cập nhật: {str(product.get('updated_at', '-'))[:10]}", size=12, color="#72777F"),
-                                                ],
-                                            ),
-                                        ],
-                                    ),
-                                    ft.Divider(color="#E0E2EC", height=1),
-                                    ft.Row(
-                                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                        controls=[
-                                            price_field,
-                                            ft.Row(
-                                                spacing=4,
-                                                controls=[
-                                                    ft.IconButton(
-                                                        icon=ft.Icons.CHECK,
-                                                        icon_color="#006494",
-                                                        tooltip="Cập nhật giá nhanh",
-                                                        width=36,
-                                                        height=36,
-                                                        style=ft.ButtonStyle(
-                                                            bgcolor="#EDF0F5",
-                                                            shape=ft.CircleBorder(),
-                                                        ),
-                                                        on_click=lambda e, code=product["code"], field=price_field: self._update_price(code, field),
-                                                    ),
-                                                    ft.IconButton(
-                                                        icon=ft.Icons.EDIT_OUTLINED,
-                                                        icon_color="#00687A",
-                                                        tooltip="Chỉnh sửa thông tin",
-                                                        width=36,
-                                                        height=36,
-                                                        style=ft.ButtonStyle(
-                                                            bgcolor="#EDF0F5",
-                                                            shape=ft.CircleBorder(),
-                                                        ),
-                                                        on_click=lambda e, p=product: self._open_edit_product(p),
-                                                    ),
-                                                    ft.IconButton(
-                                                        icon=ft.Icons.DELETE_OUTLINE,
-                                                        icon_color="#BA1A1A",
-                                                        tooltip="Xóa vật tư",
-                                                        width=36,
-                                                        height=36,
-                                                        style=ft.ButtonStyle(
-                                                            bgcolor="#FFDAD6",
-                                                            shape=ft.CircleBorder(),
-                                                        ),
-                                                        on_click=lambda e, code=product["code"]: self._delete_product(code),
-                                                    ),
-                                                ],
-                                            ),
-                                        ],
-                                    ),
-                                ],
-                            ),
-                        ),
-                    )
-                )
-        self.page.update()
+            self.on_export_pdf(e)
+        self.sum_message.value = self.message.value
+
+    def _refresh_summary(self):
+        data = self.quote_data or {}
+        pricing = data.get("pricing")
+        form = self.input_panel.get_values()
+        self.sum_name.value = form.get("project_name") or "Chưa đặt tên dự án"
+        self.sum_code.value = data.get("quote_number") or "DT-MỚI"
+        if not pricing:
+            self.sum_message.value = self.message.value
+            return
+        money = lambda v: f"{self._money(v)} đ"
+        vat_percent = pricing["vat_percent"]
+        self.sum_total.value = money(pricing["final_total"])
+        self.sum_total_note.value = f"Đã gồm thuế GTGT {vat_percent:g}%"
+        self.sum_subtotal.value = money(pricing["cost_total"])
+        bom_count = len(data.get("bom", []))
+        self.sum_subtotal_note.value = f"{bom_count} dòng linh kiện"
+        self.sum_profit.value = money(pricing["profit_value"])
+        self.sum_transport.value = money(pricing["transport_value"])
+        self.sum_discount_value.value = "-" + money(pricing["discount_value"])
+        self.sum_before_vat.value = money(pricing["before_vat"])
+        self.sum_vat_value.value = money(pricing["vat_value"])
+        self.sum_grand.value = money(pricing["final_total"])
+        self.sum_message.value = self.message.value
 
     def _open_edit_product(self, product: Dict[str, Any]):
         cat_group, cat_ui = self._build_category_selector(default_value=product["category"])
@@ -854,7 +2095,7 @@ class MainView:
             title=ft.Row(
                 spacing=8,
                 controls=[
-                    ft.Icon(ft.Icons.EDIT_NOTE, color="#006494"),
+                    ft.Icon(ft.Icons.EDIT_NOTE, color="#2563EB"),
                     ft.Text("Chỉnh sửa vật tư", weight=ft.FontWeight.BOLD),
                 ],
             ),
@@ -937,7 +2178,7 @@ class MainView:
             title=ft.Row(
                 spacing=8,
                 controls=[
-                    ft.Icon(ft.Icons.ADD_BOX_OUTLINED, color="#006494"),
+                    ft.Icon(ft.Icons.ADD_BOX_OUTLINED, color="#2563EB"),
                     ft.Text("Thêm vật tư mới", weight=ft.FontWeight.BOLD),
                 ],
             ),
@@ -1079,13 +2320,18 @@ class MainView:
                 "phone": form["customer_phone"],
             }
             self.quote_data["display_mode"] = form["display_mode"]
+            self.quote_data["notes"] = self.sum_notes.value or ""
             self.preview_panel.update_quote(self.quote_data)
+            self.input_panel.update_layout_preview(self.quote_data["summary"])
             self.message.value = ""
         except ValueError as exc:
             self.quote_data = {}
+            self.input_panel.update_layout_preview({}, str(exc))
             self.message.value = str(exc)
             self.message.color = ft.Colors.RED_700
         self.preview_panel.message.value = self.message.value
+        self._refresh_total_bars()
+        self._refresh_summary()
         self.page.update()
 
     def on_input_change(self, e):

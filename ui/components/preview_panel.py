@@ -11,28 +11,28 @@ class PreviewPanel(ft.Container):
         super().__init__(padding=ft.Padding(4, 4, 4, 12))
         self.summary = SummaryBanner()
         self.bom = BOMTable()
-        self.total = ft.Text("0 VNĐ", size=24, weight=ft.FontWeight.BOLD, color="#006494")
+        self.total = ft.Text("0 VNĐ", size=24, weight=ft.FontWeight.BOLD, color="#2563EB")
         self.customer = ft.Column(
             spacing=4,
             controls=[
                 ft.Row(
                     spacing=6,
                     controls=[
-                        ft.Icon(ft.Icons.PERSON_OUTLINE, size=16, color="#72777F"),
+                        ft.Icon(ft.Icons.PERSON_OUTLINE, size=16, color="#64748B"),
                         ft.Text("Khách hàng: Chưa cập nhật", size=13, color="#42474E"),
                     ],
                 ),
                 ft.Row(
                     spacing=6,
                     controls=[
-                        ft.Icon(ft.Icons.BUSINESS_OUTLINED, size=16, color="#72777F"),
+                        ft.Icon(ft.Icons.BUSINESS_OUTLINED, size=16, color="#64748B"),
                         ft.Text("Dự án: Chưa cập nhật", size=13, color="#42474E"),
                     ],
                 ),
                 ft.Row(
                     spacing=6,
                     controls=[
-                        ft.Icon(ft.Icons.PHONE_OUTLINED, size=16, color="#72777F"),
+                        ft.Icon(ft.Icons.PHONE_OUTLINED, size=16, color="#64748B"),
                         ft.Text("Điện thoại: Chưa cập nhật", size=13, color="#42474E"),
                     ],
                 ),
@@ -58,8 +58,8 @@ class PreviewPanel(ft.Container):
                                 ft.Column(
                                     spacing=1,
                                     controls=[
-                                        ft.Text("Báo giá chi tiết", size=20, weight=ft.FontWeight.BOLD, color="#191C1E"),
-                                        ft.Text("Xem trước kết quả dự toán và thông số", size=12, color="#72777F"),
+                                        ft.Text("Báo giá chi tiết", size=20, weight=ft.FontWeight.BOLD, color="#0F172A"),
+                                        ft.Text("Xem trước kết quả dự toán và thông số", size=12, color="#64748B"),
                                     ],
                                 ),
                             ],
@@ -68,7 +68,7 @@ class PreviewPanel(ft.Container):
                             icon=ft.Icons.SHARE_OUTLINED,
                             tooltip="Chia sẻ / Sao chép",
                             style=ft.ButtonStyle(
-                                side=ft.BorderSide(1, "#C2C7CF"),
+                                side=ft.BorderSide(1, "#CBD5E1"),
                                 shape=ft.CircleBorder(),
                             ),
                             on_click=on_share_quote,
@@ -79,8 +79,8 @@ class PreviewPanel(ft.Container):
                     elevation=0,
                     bgcolor=ft.Colors.WHITE,
                     shape=ft.RoundedRectangleBorder(
-                        radius=16,
-                        side=ft.BorderSide(width=1, color="#E0E2EC"),
+                        radius=14,
+                        side=ft.BorderSide(width=1, color="#E2E8F0"),
                     ),
                     content=ft.Container(
                         padding=16,
@@ -94,14 +94,14 @@ class PreviewPanel(ft.Container):
                                         ft.Container(
                                             width=4,
                                             height=16,
-                                            bgcolor="#006494",
+                                            bgcolor="#2563EB",
                                             border_radius=2,
                                         ),
                                         ft.Text(
                                             "Thông tin khách hàng",
                                             size=15,
                                             weight=ft.FontWeight.BOLD,
-                                            color="#191C1E",
+                                            color="#0F172A",
                                         ),
                                     ],
                                 ),
@@ -116,8 +116,8 @@ class PreviewPanel(ft.Container):
                     elevation=0,
                     bgcolor="#EAF2FA",
                     shape=ft.RoundedRectangleBorder(
-                        radius=16,
-                        side=ft.BorderSide(width=1, color="#C2C7CF"),
+                        radius=14,
+                        side=ft.BorderSide(width=1, color="#CBD5E1"),
                     ),
                     content=ft.Container(
                         padding=16,
@@ -131,18 +131,18 @@ class PreviewPanel(ft.Container):
                                         ft.Container(
                                             width=4,
                                             height=16,
-                                            bgcolor="#006494",
+                                            bgcolor="#2563EB",
                                             border_radius=2,
                                         ),
-                                        ft.Text("Chi tiết giá & Thanh toán", size=15, weight=ft.FontWeight.BOLD, color="#191C1E"),
+                                        ft.Text("Chi tiết giá & Thanh toán", size=15, weight=ft.FontWeight.BOLD, color="#0F172A"),
                                     ],
                                 ),
                                 self.pricing_details,
-                                ft.Divider(color="#C2C7CF", height=1),
+                                ft.Divider(color="#CBD5E1", height=1),
                                 ft.Row(
                                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                                     controls=[
-                                        ft.Text("Tổng cộng thanh toán:", size=14, weight=ft.FontWeight.BOLD, color="#191C1E"),
+                                        ft.Text("Tổng cộng thanh toán:", size=14, weight=ft.FontWeight.BOLD, color="#0F172A"),
                                         self.total,
                                     ],
                                 ),
@@ -160,9 +160,9 @@ class PreviewPanel(ft.Container):
                             height=44,
                             on_click=on_export_excel,
                             style=ft.ButtonStyle(
-                                bgcolor="#006494",
+                                bgcolor="#2563EB",
                                 color=ft.Colors.WHITE,
-                                shape=ft.RoundedRectangleBorder(radius=20),
+                                shape=ft.RoundedRectangleBorder(radius=12),
                             ),
                         ),
                         ft.FilledTonalButton(
@@ -172,9 +172,9 @@ class PreviewPanel(ft.Container):
                             height=44,
                             on_click=on_export_pdf,
                             style=ft.ButtonStyle(
-                                bgcolor="#CBE6FF",
+                                bgcolor="#E8EEFF",
                                 color="#001E30",
-                                shape=ft.RoundedRectangleBorder(radius=20),
+                                shape=ft.RoundedRectangleBorder(radius=12),
                             ),
                         ),
                     ],
@@ -189,7 +189,7 @@ class PreviewPanel(ft.Container):
                             height=44,
                             on_click=on_save_quote,
                             style=ft.ButtonStyle(
-                                shape=ft.RoundedRectangleBorder(radius=20),
+                                shape=ft.RoundedRectangleBorder(radius=12),
                             ),
                         ),
                         ft.OutlinedButton(
@@ -199,7 +199,7 @@ class PreviewPanel(ft.Container):
                             height=44,
                             on_click=on_share_quote,
                             style=ft.ButtonStyle(
-                                shape=ft.RoundedRectangleBorder(radius=20),
+                                shape=ft.RoundedRectangleBorder(radius=12),
                             ),
                         ),
                     ],

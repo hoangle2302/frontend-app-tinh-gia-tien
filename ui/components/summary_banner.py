@@ -9,14 +9,14 @@ class SummaryBanner(ft.Container):
         self.padding = ft.Padding(0, 0, 0, 0)
         self.bgcolor = ft.Colors.TRANSPARENT
 
-        self.size_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True)
-        self.res_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True)
-        self.refresh_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True)
-        self.module_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True)
-        self.power_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True)
-        self.card_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True)
-        self.processor_text = ft.Text("-", size=13, weight=ft.FontWeight.W_500, color="#191C1E")
-        self.area_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#191C1E", no_wrap=True)
+        self.size_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#0F172A", no_wrap=True)
+        self.res_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#0F172A", no_wrap=True)
+        self.refresh_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#0F172A", no_wrap=True)
+        self.module_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#0F172A", no_wrap=True)
+        self.power_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#0F172A", no_wrap=True)
+        self.card_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#0F172A", no_wrap=True)
+        self.processor_text = ft.Text("-", size=13, weight=ft.FontWeight.W_500, color="#0F172A")
+        self.area_text = ft.Text("-", size=14, weight=ft.FontWeight.BOLD, color="#0F172A", no_wrap=True)
         self.badge = ft.Container(
             content=ft.Row(
                 spacing=6,
@@ -35,8 +35,8 @@ class SummaryBanner(ft.Container):
             elevation=0,
             bgcolor=ft.Colors.WHITE,
             shape=ft.RoundedRectangleBorder(
-                radius=16,
-                side=ft.BorderSide(width=1, color="#E0E2EC"),
+                radius=14,
+                side=ft.BorderSide(width=1, color="#E2E8F0"),
             ),
             content=ft.Container(
                 padding=16,
@@ -50,10 +50,10 @@ class SummaryBanner(ft.Container):
                                 ft.Container(
                                     width=4,
                                     height=16,
-                                    bgcolor="#006494",
+                                    bgcolor="#2563EB",
                                     border_radius=2,
                                 ),
-                                ft.Text("Thông số kỹ thuật", size=15, weight=ft.FontWeight.BOLD, color="#191C1E"),
+                                ft.Text("Thông số kỹ thuật", size=15, weight=ft.FontWeight.BOLD, color="#0F172A"),
                             ],
                         ),
                         ft.Row(
@@ -94,8 +94,8 @@ class SummaryBanner(ft.Container):
                                                 spacing=4,
                                                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
                                                 controls=[
-                                                    ft.Icon(ft.Icons.DEVELOPER_BOARD_OUTLINED, size=15, color="#006494"),
-                                                    ft.Text("Bộ xử lý", size=12, color="#006494", weight=ft.FontWeight.BOLD),
+                                                    ft.Icon(ft.Icons.DEVELOPER_BOARD_OUTLINED, size=15, color="#2563EB"),
+                                                    ft.Text("Bộ xử lý", size=12, color="#2563EB", weight=ft.FontWeight.BOLD),
                                                 ],
                                             ),
                                             self.processor_text,
@@ -116,7 +116,7 @@ class SummaryBanner(ft.Container):
             expand=True,
             padding=ft.Padding(12, 10, 12, 10),
             border_radius=12,
-            bgcolor="#F0F4F8",
+            bgcolor="#F1F5F9",
             content=ft.Column(
                 alignment=ft.MainAxisAlignment.CENTER,
                 spacing=4,
@@ -125,8 +125,8 @@ class SummaryBanner(ft.Container):
                         spacing=4,
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         controls=[
-                            ft.Icon(icon, size=15, color="#72777F") if icon else ft.Container(),
-                            ft.Text(label, size=12, color="#72777F", weight=ft.FontWeight.W_500),
+                            ft.Icon(icon, size=15, color="#64748B") if icon else ft.Container(),
+                            ft.Text(label, size=12, color="#64748B", weight=ft.FontWeight.W_500),
                         ],
                     ),
                     value,
