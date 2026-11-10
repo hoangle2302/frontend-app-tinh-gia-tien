@@ -63,6 +63,17 @@ def test_auth_login_view_init_and_reset():
     assert login.password_input is not None
     assert login.login_button is not None
     assert login.form_card is not None
+    assert login.form_card.width == 360
+    assert (
+        login.company_dropdown.width
+        == login.username_input.width
+        == login.unit_dropdown.width
+        == login.password_input.width
+        == 320
+    )
+    assert login.company_dropdown.expanded_insets == ft.Padding(0, 0, 0, 0)
+    assert login.unit_dropdown.expanded_insets == ft.Padding(0, 0, 0, 0)
+    assert login.company_dropdown.content_padding == login.username_input.content_padding
     assert login._is_submitting is False
 
     # Giả lập nhập liệu và reset
@@ -75,6 +86,18 @@ def test_auth_login_view_init_and_reset():
     assert login.password_input.value == ""
     assert login.username_input.disabled is False
     assert login._is_submitting is False
+
+    # Kiểm tra on_resize và _safe_update nhận controls
+    mock_page.width = 400
+    login.on_resize()
+    assert login.form_card.width == 360
+    assert (
+        login.company_dropdown.width
+        == login.username_input.width
+        == login.unit_dropdown.width
+        == login.password_input.width
+        == 320
+    )
 
 
 def test_auth_login_validation_error():
@@ -138,3 +161,161 @@ def test_auth_login_four_fields_and_unit_lookup(monkeypatch):
     assert res_true is True
     assert login.unit_dropdown.value == "CTY"
     assert login.username_input.error is None
+
+
+def test_quote_search_and_clone_and_detail_view():
+    mock_page = MagicMock(spec=ft.Page)
+    mock_page.theme_mode = ft.ThemeMode.LIGHT
+    mock_page.width = 400
+    mock_page.height = 800
+
+    from ui.views.main_view import MainView
+    from database.db_manager import DBManager
+
+    db = DBManager()
+    db.initialize()
+
+    # Lưu 1 báo giá mẫu với tên có dấu
+    test_id = db.save_quote_history(
+        quote_name="Dự án Hội trường Khách sạn",
+        customer_name="Công ty Toàn Trung",
+        payload={
+            "customer_name": "Công ty Toàn Trung",
+            "project_name": "Dự án Hội trường Khách sạn",
+            "module_code": "M-P2.5-IN",
+            "width_m": "3.84",
+            "height_m": "1.92",
+            "screen_quantity": 1,
+            "display_mode": "Online",
+            "vat_percent": 10,
+            "profit_percent": 15,
+        },
+        total=125000000.0,
+        status="Nháp",
+    )
+
+    mv = MainView(page=mock_page, db=db)
+
+    # 1. Kiểm tra tìm kiếm không dấu
+    mv.list_search.value = "hoi truong toan trung"
+    results = mv._get_filtered_list_history()
+    assert any(r["id"] == test_id for r in results)
+
+    # 2. Kiểm tra tìm kiếm theo module
+    mv.list_search.value = "p2.5"
+    results = mv._get_filtered_list_history()
+    assert any(r["id"] == test_id for r in results)
+
+    # 3. Kiểm tra xem chi tiết (chỉ xem)
+    mv._open_quote_detail_view(test_id)
+    assert mv.detail_mode is True
+    assert mv.active_detail_item is not None
+    assert mv.active_detail_item["id"] == test_id
+    detail_content = mv.list_wrapper.content
+    assert detail_content is not None
+    # Đóng xem chi tiết
+    mv._close_detail_view()
+    assert mv.detail_mode is False
+
+    # 4. Kiểm tra sao chép (tự động tạo 1 bảng tương tự trong DB)
+    initial_count = len(db.list_quote_history())
+    mv._clone_history(test_id)
+    new_count = len(db.list_quote_history())
+    assert new_count == initial_count + 1
+
+    # Bản sao có tên mới chứa "(Bản sao)" và cùng tổng tiền
+    cloned = db.list_quote_history()[0]
+    assert "(Bản sao)" in cloned["quote_name"]
+    assert cloned["total"] == 125000000.0
+
+
+def test_input_panel_removed_elements():
+    mock_page = MagicMock(spec=ft.Page)
+    from ui.components.input_panel import InputPanel
+    from database.db_manager import DBManager
+
+    db = DBManager()
+    db.initialize()
+
+    panel = InputPanel(
+        options={
+            "modules": db.list_products("module"),
+            "powers": db.list_products("power"),
+            "cards": db.list_products("card"),
+            "frames": db.list_products("frame"),
+            "processors": db.list_products("processor"),
+        },
+        on_change=MagicMock(),
+        on_save=MagicMock(),
+        on_export_excel=MagicMock(),
+        on_export_pdf=MagicMock(),
+        on_load_preset=MagicMock(),
+    )
+
+    # Kiểm tra card_display_module có nút Loại màn hình (Trong nhà / Ngoài trời), không còn chữ (Indoor / Outdoor)
+    module_controls_str = str(panel.card_display_module.content.controls)
+    assert "Loại màn hình" in module_controls_str
+    assert "Trong nhà" in module_controls_str
+    assert "Ngoài trời" in module_controls_str
+    assert "Indoor" not in module_controls_str
+    assert "Outdoor" not in module_controls_str
+
+    # Kiểm tra layout không còn nút "Lập dự toán" có mũi tên back và stepper "01 Cấu hình"
+    panel_layout_str = str(panel.content)
+    assert "01 Cấu hình" not in panel_layout_str
+    assert "Lập dự toán" not in panel_layout_str
+
+
+def test_brand_loading_view_appearance():
+    mock_page = MagicMock(spec=ft.Page)
+    loader = BrandLoadingView(
+        username="TestUser",
+        on_complete=MagicMock(),
+        page=mock_page,
+    )
+    # Kiểm tra màu nền khớp màu xanh thương hiệu Toàn Trung của logo
+    assert loader.bgcolor == "#0B4CA3"
+    assert loader.gradient is None
+    # Kiểm tra logo không còn khung viền/hộp bao quanh
+    assert loader.logo_badge.border is None
+    assert loader.logo_badge.bgcolor is None
+    assert loader.logo_badge.shadow is None
+
+
+def test_main_view_reset_from_profile_on_logout():
+    from main import _handle_logout
+    from ui.views.main_view import MainView
+    from database.db_manager import DBManager
+
+    mock_page = MagicMock(spec=ft.Page)
+    mock_page.width = 400
+    mock_page.controls = [MagicMock()]
+    db = DBManager()
+    db.initialize()
+
+    mv = MainView(page=mock_page, db=db)
+    # Người dùng mở màn hình Hồ sơ
+    mv.open_profile()
+    assert mv.view_container.content != mv.quote_view
+
+    # Gọi reset của MainView
+    mv.reset()
+    assert mv.nav_bar.selected_index == 0
+    assert mv.view_container.content == mv.quote_view
+
+    # Kiểm tra kịch bản đăng xuất rồi đăng nhập lại
+    mv.open_profile()
+    app_state = {
+        "current_view": "main",
+        "username": "hoang",
+        "main_view": mv,
+        "login_view": MagicMock(),
+    }
+    _handle_logout(mock_page, app_state)
+    assert app_state["current_view"] == "login"
+    assert app_state["username"] is None
+    # Sau khi logout, main_view đã được tự động reset về Tab 0 (Lập dự toán)
+    assert mv.nav_bar.selected_index == 0
+    assert mv.view_container.content == mv.quote_view
+
+

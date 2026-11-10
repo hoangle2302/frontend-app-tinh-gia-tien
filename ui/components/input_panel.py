@@ -128,7 +128,7 @@ class InputPanel(ft.Container):
                 spacing=8,
                 controls=[
                     ft.Icon(ft.Icons.RADIO_BUTTON_CHECKED, size=18, color="#2563EB"),
-                    ft.Text("Trong nhà (Indoor)", size=13, weight=ft.FontWeight.W_700, color="#2563EB"),
+                    ft.Text("Trong nhà", size=13, weight=ft.FontWeight.W_700, color="#2563EB"),
                 ],
             ),
         )
@@ -146,7 +146,7 @@ class InputPanel(ft.Container):
                 spacing=8,
                 controls=[
                     ft.Icon(ft.Icons.RADIO_BUTTON_UNCHECKED, size=18, color="#64748B"),
-                    ft.Text("Ngoài trời (Outdoor)", size=13, weight=ft.FontWeight.W_700, color="#64748B"),
+                    ft.Text("Ngoài trời", size=13, weight=ft.FontWeight.W_700, color="#64748B"),
                 ],
             ),
         )
@@ -546,31 +546,12 @@ class InputPanel(ft.Container):
     # Giao diện tổng thể
     # -------------------------------------------------------------
     def _build_layout(self):
-        # 1. Header: Cấu hình LED + Stepper (01 Cấu hình > 02 Linh kiện > 03 Tổng hợp)
+        # 1. Header: Cấu hình LED
         header_block = ft.Column(
             spacing=4,
             controls=[
-                ft.Row(
-                    spacing=6,
-                    controls=[
-                        ft.Icon(ft.Icons.ARROW_BACK, size=16, color="#2563EB"),
-                        ft.Text("Lập dự toán", size=13, weight=ft.FontWeight.W_600, color="#2563EB"),
-                    ],
-                ),
                 ft.Text("Cấu hình LED", size=24, weight=ft.FontWeight.W_800, color="#0F172A"),
                 ft.Text("Thiết lập thông số trước khi lập bảng dự toán.", size=12, color="#64748B"),
-                ft.Container(height=4),
-                ft.Row(
-                    spacing=6,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                    controls=[
-                        ft.Text("01 Cấu hình", size=11, weight=ft.FontWeight.W_700, color="#2563EB"),
-                        ft.Icon(ft.Icons.CHEVRON_RIGHT, size=14, color="#94A3B8"),
-                        ft.Text("02 Linh kiện", size=11, color="#94A3B8"),
-                        ft.Icon(ft.Icons.CHEVRON_RIGHT, size=14, color="#94A3B8"),
-                        ft.Text("03 Tổng hợp", size=11, color="#94A3B8"),
-                    ],
-                ),
                 ft.Container(height=6),
                 ft.Row(spacing=8, controls=[self.mode_btn_auto, self.mode_btn_manual]),
                 self.mode_description,

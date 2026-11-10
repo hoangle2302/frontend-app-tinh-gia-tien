@@ -1,3 +1,4 @@
+import asyncio
 import threading
 import time
 from typing import Any, Callable, Optional
@@ -11,8 +12,8 @@ class BrandLoadingView(ft.Container):
     hiển thị logo phát sáng, thanh tiến trình gradient và các trạng thái nạp hệ thống.
     """
 
-    LOGO_SRC = "full_logo2.png"
-    FALLBACK_LOGO = "logo.png"
+    LOGO_SRC = "logo_white_brand.png"
+    FALLBACK_LOGO = "full_logo2.png"
 
     def __init__(
         self,
@@ -29,49 +30,26 @@ class BrandLoadingView(ft.Container):
         self.pipeline_result: Optional[Any] = None
         self.expand = True
 
-        # Nền gradient công nghệ hiện đại tông màu xanh thương hiệu Toàn Trung
-        self.gradient = ft.LinearGradient(
-            begin=ft.Alignment.TOP_CENTER,
-            end=ft.Alignment.BOTTOM_CENTER,
-            colors=["#020A17", "#051A38", "#082F6A", "#011024"],
-        )
+        # Nền màu xanh thương hiệu Toàn Trung đồng nhất với logo
+        self.bgcolor = "#0B4CA3"
+        self.gradient = None
         self.alignment = ft.Alignment(0, 0)
 
-        # 1. Logo thương hiệu với viền phát sáng và hiệu ứng phóng to / thu nhỏ
+        # 1. Logo thương hiệu thuần túy, không có khung viền hộp bao quanh
         self.logo_img = ft.Image(
             src=self.LOGO_SRC,
-            width=100,
-            height=100,
+            width=260,
             fit=ft.BoxFit.CONTAIN,
         )
 
         self.logo_badge = ft.Container(
             content=self.logo_img,
-            width=116,
-            height=116,
-            border_radius=24,
-            bgcolor="#07162C",
-            border=ft.Border.all(1.5, "#38BDF866"),
             alignment=ft.Alignment(0, 0),
-            shadow=[
-                ft.BoxShadow(
-                    spread_radius=1,
-                    blur_radius=25,
-                    color="#6600B8E8",
-                    offset=ft.Offset(0, 6),
-                ),
-                ft.BoxShadow(
-                    spread_radius=0,
-                    blur_radius=40,
-                    color="#44004A98",
-                    offset=ft.Offset(0, 12),
-                ),
-            ],
             scale=1.0,
-            animate_scale=ft.Animation(600, ft.AnimationCurve.EASE_IN_OUT),
+            animate_scale=ft.Animation(500, ft.AnimationCurve.EASE_IN_OUT),
         )
 
-        # 2. Tiêu đề thương hiệu và khẩu hiệu
+        # 2. Các thuộc tính mô tả & trạng thái hệ thống (lưu trữ phục vụ mô hình & kiểm thử)
         self.brand_title = ft.Text(
             "TOÀN TRUNG",
             size=23,
@@ -95,7 +73,6 @@ class BrandLoadingView(ft.Container):
             text_align=ft.TextAlign.CENTER,
         )
 
-        # 3. Huy hiệu chào mừng tài khoản đăng nhập
         self.user_badge = ft.Container(
             content=ft.Row(
                 controls=[
@@ -120,7 +97,6 @@ class BrandLoadingView(ft.Container):
             padding=ft.Padding(14, 6, 14, 6),
         )
 
-        # 4. Thanh tiến trình và thông báo tiến độ
         self.step_label = ft.Text(
             "Đang chuẩn bị...",
             size=12,
@@ -176,49 +152,14 @@ class BrandLoadingView(ft.Container):
             tight=True,
         )
 
-        # 5. Khung thẻ chính giữa màn hình (Card) với hiệu ứng trong suốt (Glassmorphism)
+        # 3. Khung hiển thị tối giản: Chỉ hiển thị Logo trên nền Background
         self.card = ft.Container(
-            width=360,
-            padding=ft.Padding(left=24, top=32, right=24, bottom=28),
-            bgcolor="#101D33EE",
-            border=ft.Border.all(1.2, "#38BDF844"),
-            border_radius=24,
-            shadow=[
-                ft.BoxShadow(
-                    spread_radius=1,
-                    blur_radius=30,
-                    color="#4000B8E8",
-                    offset=ft.Offset(0, 8),
-                ),
-                ft.BoxShadow(
-                    spread_radius=0,
-                    blur_radius=50,
-                    color="#35002F6C",
-                    offset=ft.Offset(0, 16),
-                ),
-            ],
+            content=self.logo_badge,
+            alignment=ft.Alignment(0, 0),
             opacity=0.0,
             scale=0.92,
-            offset=ft.Offset(0, 0.04),
             animate_opacity=ft.Animation(450, ft.AnimationCurve.EASE_OUT),
             animate_scale=ft.Animation(450, ft.AnimationCurve.EASE_OUT_BACK),
-            animate_offset=ft.Animation(450, ft.AnimationCurve.EASE_OUT),
-            content=ft.Column(
-                controls=[
-                    self.logo_badge,
-                    ft.Container(height=4),
-                    self.brand_title,
-                    self.brand_subtitle,
-                    self.app_desc,
-                    ft.Container(height=4),
-                    self.user_badge,
-                    ft.Container(height=10),
-                    self.progress_section,
-                ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=8,
-                tight=True,
-            ),
         )
 
         self.content = self.card
@@ -227,100 +168,78 @@ class BrandLoadingView(ft.Container):
         """Kích hoạt chuỗi chuyển động và cập nhật tiến trình."""
         threading.Thread(target=self._run_loading_sequence, daemon=True).start()
 
+    def _sync_erp_background(self):
+        """Chạy đồng bộ API FastBusiness trên luồng phụ biệt lập, không block UI."""
+        try:
+            from api.services import FastBusinessService
+
+            api_service = FastBusinessService()
+            self.pipeline_result = api_service.post_login_query_pipeline(
+                db_manager=self.db_manager,
+                username=self.username,
+            )
+        except Exception:
+            pass
+
     def _run_loading_sequence(self):
-        # 1. Hiệu ứng xuất hiện mượt mà của thẻ trung tâm
+        # 1. Hiệu ứng xuất hiện mượt mà của Logo
         time.sleep(0.05)
         self.card.opacity = 1.0
         self.card.scale = 1.0
-        self.card.offset = ft.Offset(0, 0)
-        self.logo_badge.scale = 1.04
-        self._safe_update()
+        self.logo_badge.scale = 1.06
+        self._safe_update(self.card, self.logo_badge)
 
         time.sleep(0.2)
         self.logo_badge.scale = 1.0
-        self._safe_update()
+        self._safe_update(self.logo_badge)
 
-        # 2. Chuỗi các giai đoạn nạp hệ thống thực tế
-        stages = [
-            (
-                0.25,
-                "Khởi tạo hệ thống",
-                "Thiết lập phiên làm việc FastBusiness ERP...",
-                ft.Icons.MEMORY_ROUNDED,
-            ),
-            (
-                0.60,
-                "Đồng bộ danh mục & LookupFields",
-                "Quét danh mục Module LED, bộ điều khiển & môi trường vào Database...",
-                ft.Icons.WIDGETS_ROUNDED,
-            ),
-            (
-                0.85,
-                "Đồng bộ lưới BT1 & Quyền hạn",
-                "Nạp cấu hình lưới chứng từ BT1, công thức tính & bài đăng...",
-                ft.Icons.CALCULATE_ROUNDED,
-            ),
-            (
-                1.00,
-                "Sẵn sàng",
-                f"Khởi chạy không gian làm việc cho {self.username}...",
-                ft.Icons.CHECK_CIRCLE_ROUNDED,
-            ),
-        ]
+        # Kích hoạt worker ngầm tải ERP ngay từ đầu, hoàn toàn tách rời UI Thread
+        threading.Thread(target=self._sync_erp_background, daemon=True).start()
 
+        # 2. Cập nhật tiến trình nạp ngầm
+        stages = [0.25, 0.60, 0.85, 1.00]
         current_progress = 0.0
-        for target_pct, step_title, status_msg, icon_name in stages:
-            self.step_label.value = step_title
-            self.status_text.value = status_msg
-            self.status_icon.name = icon_name
-
-            # Thực hiện thuật toán truy vấn toàn bộ API đã scan sau khi login
-            if target_pct == 0.60:
-                try:
-                    from api.services import FastBusinessService
-
-                    api_service = FastBusinessService()
-                    self.pipeline_result = api_service.post_login_query_pipeline(
-                        db_manager=self.db_manager,
-                        username=self.username,
-                    )
-                except Exception:
-                    pass
-
+        for target_pct in stages:
             while current_progress < target_pct:
-                current_progress = min(target_pct, round(current_progress + 0.04, 2))
+                current_progress = min(target_pct, round(current_progress + 0.05, 2))
                 self.progress_bar.value = current_progress
                 self.percent_text.value = f"{int(current_progress * 100)}%"
-                self._safe_update()
-                time.sleep(0.025)
+                time.sleep(0.02)
+            time.sleep(0.05)
 
-            time.sleep(0.12)
+        # 3. Hiệu ứng thở nhẹ của logo khi hoàn tất
+        self.logo_badge.scale = 1.04
+        self._safe_update(self.logo_badge)
+        time.sleep(0.12)
 
-        # 3. Trạng thái hoàn tất thành công (100%)
-        self.percent_text.color = "#10B981"
-        self.step_label.color = "#10B981"
-        self.status_icon.color = "#10B981"
-        self.status_text.color = "#10B981"
-        self.status_text.value = f"Đã sẵn sàng! Chào mừng {self.username}."
-        self._safe_update()
-
-        time.sleep(0.25)
-
-        # 4. Hiệu ứng mờ dần chuyển cảnh (Fade out & Scale up exit)
+        # 4. Hiệu ứng mờ dần chuyển cảnh (Fade out)
         self.card.opacity = 0.0
-        self.card.scale = 1.03
-        self.card.offset = ft.Offset(0, -0.02)
-        self._safe_update()
+        self.card.scale = 1.05
+        self._safe_update(self.card)
 
-        time.sleep(0.3)
+        time.sleep(0.15)
 
-        # 5. Gọi hàm hoàn tất để mở giao diện chính
+        # 5. Gọi hàm hoàn tất để mở giao diện chính thông qua Dispatcher của Main Thread
         if self.on_complete:
-            self.on_complete()
+            loop = getattr(self._app_page, "loop", None)
+            if isinstance(loop, asyncio.AbstractEventLoop) and loop.is_running():
+                loop.call_soon_threadsafe(self.on_complete)
+            else:
+                self.on_complete()
 
-    def _safe_update(self):
+    def _safe_update(self, *controls):
         try:
-            self._app_page.update()
+            loop = getattr(self._app_page, "loop", None)
+            if isinstance(loop, asyncio.AbstractEventLoop) and loop.is_running():
+                if controls:
+                    loop.call_soon_threadsafe(self._app_page.update, *controls)
+                else:
+                    loop.call_soon_threadsafe(self._app_page.update)
+            else:
+                if controls:
+                    self._app_page.update(*controls)
+                else:
+                    self._app_page.update()
         except Exception:
             pass
 

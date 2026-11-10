@@ -77,6 +77,7 @@ class AuthLoginView(ft.Container):
             icon_color=palette["theme_btn_icon"],
             bgcolor=palette["theme_btn_bg"],
             icon_size=20,
+            visible=False,
             tooltip="Chuyển sang Light Mode" if is_dark else "Chuyển sang Dark Mode",
             style=ft.ButtonStyle(
                 shape=ft.RoundedRectangleBorder(radius=10),
@@ -176,6 +177,7 @@ class AuthLoginView(ft.Container):
                 spacing=10,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
+            width=320,
             padding=ft.Padding(left=14, top=12, right=14, bottom=12),
             border_radius=10,
             opacity=0.0,
@@ -205,6 +207,7 @@ class AuthLoginView(ft.Container):
         )
         self.login_button = ft.Container(
             content=self.login_button_content,
+            width=320,
             height=52,
             border_radius=12,
             gradient=ft.LinearGradient(
@@ -249,6 +252,7 @@ class AuthLoginView(ft.Container):
 
         self.form_card = ft.Container(
             content=self.login_form,
+            width=360,
             bgcolor=palette["card_bg"],
             border=ft.Border.all(1, palette["card_border"]),
             border_radius=20,
@@ -500,22 +504,21 @@ class AuthLoginView(ft.Container):
         value: Optional[str],
         on_select: Callable,
         palette: dict = None,
+        width: Optional[int] = 320,
     ) -> ft.Dropdown:
         palette = palette or self.THEME_PALETTE["light"]
         return ft.Dropdown(
+            width=width,
             label=label,
             leading_icon=icon,
             options=options,
             value=value,
             on_select=on_select,
-            expanded_insets=0,
+            expanded_insets=ft.Padding(0, 0, 0, 0),
             filled=True,
             fill_color=palette["input_bg"],
             bgcolor=palette["input_bg"],
-            border_radius=12,
-            border_color=palette["input_border"],
-            focused_border_color=self.BRAND_SECONDARY,
-            focused_border_width=2,
+            border=self._make_input_border(palette["input_border"]),
             text_size=14,
             color=palette["text_primary"],
             label_style=ft.TextStyle(
@@ -539,15 +542,18 @@ class AuthLoginView(ft.Container):
         is_password: bool = False,
         autofocus: bool = False,
         palette: dict = None,
+        width: Optional[int] = 320,
     ) -> ft.TextField:
         palette = palette or self.THEME_PALETTE["light"]
         return ft.TextField(
+            width=width,
             label=label,
             prefix_icon=icon,
             password=is_password,
             can_reveal_password=is_password,
             autofocus=autofocus,
             filled=True,
+            fill_color=palette["input_bg"],
             bgcolor=palette["input_bg"],
             border=self._make_input_border(palette["input_border"]),
             text_size=14,
@@ -561,7 +567,7 @@ class AuthLoginView(ft.Container):
                 size=13,
             ),
             content_padding=ft.Padding(
-                left=16, top=16, right=16, bottom=16
+                left=16, top=14, right=16, bottom=14
             ),
         )
 
@@ -810,9 +816,20 @@ class AuthLoginView(ft.Container):
         self._safe_update()
         self.load_initial_entity_data()
 
-    def _safe_update(self):
+    def _safe_update(self, *controls):
         try:
-            self._app_page.update()
+            loop = getattr(self._app_page, "loop", None)
+            import asyncio
+            if isinstance(loop, asyncio.AbstractEventLoop) and loop.is_running():
+                if controls:
+                    loop.call_soon_threadsafe(self._app_page.update, *controls)
+                else:
+                    loop.call_soon_threadsafe(self._app_page.update)
+            else:
+                if controls:
+                    self._app_page.update(*controls)
+                else:
+                    self._app_page.update()
         except Exception:
             pass
 
@@ -855,7 +872,7 @@ class AuthLoginView(ft.Container):
         for dd in (self.company_dropdown, self.unit_dropdown):
             dd.bgcolor = palette["input_bg"]
             dd.fill_color = palette["input_bg"]
-            dd.border_color = palette["input_border"]
+            dd.border = self._make_input_border(palette["input_border"])
             dd.color = palette["text_primary"]
             dd.label_style = ft.TextStyle(color=palette["text_secondary"], size=13)
             dd.menu_style = ft.MenuStyle(
@@ -869,3 +886,25 @@ class AuthLoginView(ft.Container):
         if self.status_banner.visible:
             is_err = self.status_icon.name == ft.Icons.ERROR_OUTLINE_ROUNDED
             self._show_status(self.status_text.value, is_error=is_err)
+
+    def on_resize(self, e=None):
+        """Đồng bộ kích thước form_card và tất cả các ô nhập liệu theo chiều rộng cửa sổ hiển thị."""
+        if self._app_page and hasattr(self._app_page, "width") and isinstance(self._app_page.width, (int, float)):
+            target_w = min(380, max(280, self._app_page.width - 40))
+            inner_w = target_w - 40
+            self.form_card.width = target_w
+            self.company_dropdown.width = inner_w
+            self.username_input.width = inner_w
+            self.unit_dropdown.width = inner_w
+            self.password_input.width = inner_w
+            self.login_button.width = inner_w
+            self.status_banner.width = inner_w
+            self._safe_update(
+                self.form_card,
+                self.company_dropdown,
+                self.username_input,
+                self.unit_dropdown,
+                self.password_input,
+                self.login_button,
+                self.status_banner,
+            )

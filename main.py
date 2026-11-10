@@ -147,7 +147,7 @@ def main(page: ft.Page):
         animate_scale=ft.Animation(180, ft.AnimationCurve.EASE_OUT),
     )
 
-    header_actions = ft.Row([history_btn, theme_btn, avatar_btn], spacing=8)
+    header_actions = ft.Row([history_btn, avatar_btn], spacing=8)
 
     main_appbar = ft.AppBar(
         leading=logo_container,
@@ -194,6 +194,12 @@ def main(page: ft.Page):
                     db=db,
                     on_logout=lambda p: _handle_logout(p, app_state),
                 )
+            else:
+                # Đảm bảo luôn chuyển về tab 0 (Lập dự toán) khi đăng nhập lại
+                if hasattr(app_state["main_view"], "reset"):
+                    app_state["main_view"].reset()
+                else:
+                    app_state["main_view"]._go_tab(0)
             if hasattr(app_state["main_view"], "input_panel"):
                 app_state["main_view"].input_panel.customer_name.value = username
 
@@ -231,6 +237,8 @@ def main(page: ft.Page):
             page.appbar.leading_width = 155 if compact else 185
         if app_state["current_view"] == "main" and app_state["main_view"]:
             app_state["main_view"].on_resize(e)
+        if app_state["current_view"] == "login" and app_state.get("login_view") and hasattr(app_state["login_view"], "on_resize"):
+            app_state["login_view"].on_resize(e)
         page.update()
 
     page.on_resize = on_resize
@@ -242,6 +250,12 @@ def _handle_logout(page: ft.Page, app_state: dict):
     app_state["username"] = None
     if app_state.get("login_view"):
         app_state["login_view"].reset()
+
+    if app_state.get("main_view"):
+        if hasattr(app_state["main_view"], "reset"):
+            app_state["main_view"].reset()
+        else:
+            app_state["main_view"]._go_tab(0)
 
     page.appbar = None
     if len(page.controls) > 0:
