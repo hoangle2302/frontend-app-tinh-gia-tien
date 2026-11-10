@@ -65,6 +65,23 @@ class DBManager:
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_quote_history_quote_number "
             "ON quote_history(quote_number)"
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS lookup_values (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category TEXT NOT NULL,
+                code TEXT NOT NULL,
+                name TEXT NOT NULL,
+                target_field TEXT NOT NULL DEFAULT '',
+                extra_json TEXT NOT NULL DEFAULT '{}',
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(category, code)
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_lookup_category ON lookup_values(category)"
+        )
 
     def seed_mock_data(self) -> None:
         with self._connect() as conn:
@@ -514,6 +531,54 @@ class DBManager:
                 (float(unit_price), code),
             )
             conn.commit()
+
+    def save_lookup_records(
+        self,
+        category: str,
+        records: List[Dict[str, Any]],
+        target_field: str = "",
+    ) -> int:
+        """Lưu hoặc cập nhật danh sách bản ghi lookup quét từ API vào database."""
+        count = 0
+        with self._connect() as conn:
+            for item in records:
+                code = str(item.get("code") or item.get("ma") or "")
+                name = str(item.get("name") or item.get("ten") or code)
+                t_field = str(item.get("target_field") or target_field or "")
+                extra = {
+                    k: v
+                    for k, v in item.items()
+                    if k not in {"code", "name", "target_field", "category"}
+                }
+                conn.execute(
+                    """
+                    INSERT INTO lookup_values (category, code, name, target_field, extra_json, updated_at)
+                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(category, code) DO UPDATE SET
+                        name = excluded.name,
+                        target_field = excluded.target_field,
+                        extra_json = excluded.extra_json,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (category, code, name, t_field, json.dumps(extra, ensure_ascii=True)),
+                )
+                count += 1
+            conn.commit()
+        return count
+
+    def get_lookup_records(self, category: str) -> List[Dict[str, Any]]:
+        """Lấy danh sách các giá trị lookup theo phân loại từ database."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM lookup_values WHERE category = ? ORDER BY code",
+                (category,),
+            ).fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["extra_data"] = json.loads(d.pop("extra_json", "{}"))
+            result.append(d)
+        return result
 
     def get_company_profile(self) -> Dict[str, Any]:
         with self._connect() as conn:

@@ -2,6 +2,7 @@ import flet as ft
 
 from database.db_manager import DBManager
 from ui.views.auth_login_view import AuthLoginView
+from ui.views.brand_loading_view import BrandLoadingView
 from ui.views.main_view import MainView
 
 
@@ -117,6 +118,9 @@ def main(page: ft.Page):
             shape=ft.CircleBorder(),
             padding=0,
         ),
+        scale=1.0,
+        animate_scale=ft.Animation(180, ft.AnimationCurve.EASE_OUT),
+        animate_rotation=ft.Animation(300, ft.AnimationCurve.EASE_OUT),
     )
 
     history_btn = ft.IconButton(
@@ -127,6 +131,8 @@ def main(page: ft.Page):
         height=38,
         on_click=lambda e: app_state["main_view"] and app_state["main_view"].open_history(),
         style=ft.ButtonStyle(bgcolor="#E8EEFF", shape=ft.CircleBorder(), padding=0),
+        scale=1.0,
+        animate_scale=ft.Animation(180, ft.AnimationCurve.EASE_OUT),
     )
 
     avatar_btn = ft.IconButton(
@@ -137,6 +143,8 @@ def main(page: ft.Page):
         height=38,
         on_click=lambda e: app_state["main_view"] and app_state["main_view"].open_profile(),
         style=ft.ButtonStyle(bgcolor="#E8EEFF", shape=ft.CircleBorder(), padding=0),
+        scale=1.0,
+        animate_scale=ft.Animation(180, ft.AnimationCurve.EASE_OUT),
     )
 
     header_actions = ft.Row([history_btn, theme_btn, avatar_btn], spacing=8)
@@ -153,50 +161,26 @@ def main(page: ft.Page):
     db = DBManager()
     db.initialize()
 
-    # Content container
-    content_area = ft.Container(expand=True)
+    # Content container sử dụng AnimatedSwitcher để chuyển đổi mượt mà giữa Đăng nhập, Loading và Màn chính
+    content_area = ft.AnimatedSwitcher(
+        content=ft.Container(expand=True),
+        transition=ft.AnimatedSwitcherTransition.FADE,
+        duration=320,
+        reverse_duration=220,
+        switch_in_curve=ft.AnimationCurve.EASE_OUT_CUBIC,
+        switch_out_curve=ft.AnimationCurve.EASE_IN_CUBIC,
+        expand=True,
+    )
     page.add(content_area)
-
-    def build_splash_screen():
-        return ft.Container(
-            expand=True,
-            bgcolor="#0C4C9F",
-            alignment=ft.Alignment(0, 0),
-            content=ft.Column(
-                alignment=ft.MainAxisAlignment.CENTER,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=20,
-                controls=[
-                    # Logo giữa màn hình thu nhỏ lại
-                    ft.Image(
-                        src="full_logo2.png",
-                        width=120,
-                        height=120,
-                        fit=ft.BoxFit.CONTAIN,
-                    ),
-                    ft.ProgressRing(
-                        width=24,
-                        height=24,
-                        stroke_width=2.5,
-                        color=ft.Colors.WHITE,
-                    ),
-                ],
-            ),
-        )
 
     def on_login_success(username: str):
         app_state["username"] = username
         app_state["current_view"] = "loading"
 
-        # Hiển thị trang loading splash screen
+        # Ẩn AppBar trong lúc hiển thị màn hình nạp thương hiệu
         page.appbar = None
-        content_area.content = build_splash_screen()
-        page.update()
 
         def proceed():
-            import time
-            time.sleep(0.5)  # Delay 0.5s theo yêu cầu
-
             app_state["current_view"] = "main"
             page.appbar = main_appbar
             is_dark = page.theme_mode == ft.ThemeMode.DARK
@@ -210,16 +194,23 @@ def main(page: ft.Page):
                     db=db,
                     on_logout=lambda p: _handle_logout(p, app_state),
                 )
-                if hasattr(app_state["main_view"], "input_panel"):
-                    app_state["main_view"].input_panel.customer_name.value = username
+            if hasattr(app_state["main_view"], "input_panel"):
+                app_state["main_view"].input_panel.customer_name.value = username
 
             content_area.content = app_state["main_view"].tabs
             app_state["main_view"].mount()
             app_state["main_view"].on_resize()
             page.update()
 
-        import threading
-        threading.Thread(target=proceed, daemon=True).start()
+        brand_loader = BrandLoadingView(
+            username=username,
+            on_complete=proceed,
+            page=page,
+            db_manager=db,
+        )
+        content_area.content = brand_loader
+        page.update()
+        brand_loader.start()
 
     login_view = AuthLoginView(
         page=page,
@@ -250,9 +241,7 @@ def _handle_logout(page: ft.Page, app_state: dict):
     app_state["current_view"] = "login"
     app_state["username"] = None
     if app_state.get("login_view"):
-        app_state["login_view"].username_input.value = ""
-        app_state["login_view"].password_input.value = ""
-        app_state["login_view"].status_banner.visible = False
+        app_state["login_view"].reset()
 
     page.appbar = None
     if len(page.controls) > 0:
@@ -287,6 +276,9 @@ def _toggle_theme(page: ft.Page, e, app_state: dict):
             if is_dark
             else ft.Icons.DARK_MODE_OUTLINED
         )
+        current_rotate = getattr(e.control, "rotate", 0) or 0
+        e.control.rotate = current_rotate + 3.14159 / 2
+        e.control.animate_rotation = ft.Animation(300, ft.AnimationCurve.EASE_OUT)
 
     if app_state.get("login_view"):
         app_state["login_view"].apply_theme(is_dark)
