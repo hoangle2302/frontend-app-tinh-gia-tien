@@ -53,6 +53,18 @@ CREATE TABLE IF NOT EXISTS company_profile (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS lookup_values (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL,
+    code TEXT NOT NULL,
+    name TEXT NOT NULL,
+    target_field TEXT NOT NULL DEFAULT '',
+    extra_json TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(category, code)
+);
+
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_products_environment ON products(environment);
 CREATE INDEX IF NOT EXISTS idx_quote_history_created_at ON quote_history(created_at);
+CREATE INDEX IF NOT EXISTS idx_lookup_category ON lookup_values(category);

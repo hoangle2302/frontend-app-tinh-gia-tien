@@ -21,7 +21,6 @@ class DBManager:
             conn.executescript(schema_sql)
             self._migrate_schema(conn)
             conn.commit()
-        self.seed_mock_data()
 
     @staticmethod
     def _migrate_schema(conn: sqlite3.Connection) -> None:
@@ -65,267 +64,24 @@ class DBManager:
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_quote_history_quote_number "
             "ON quote_history(quote_number)"
         )
-
-    def seed_mock_data(self) -> None:
-        with self._connect() as conn:
-            products = [
-                # Modules
-                {
-                    "category": "module",
-                    "code": "M-P1.25-IN",
-                    "name": "LED Module P1.25 Indoor",
-                    "environment": "indoor",
-                    "unit": "pcs",
-                    "unit_price": 680000,
-                    "spec_json": {
-                        "pitch": "P1.25",
-                        "width_mm": 320,
-                        "height_mm": 160,
-                        "pixel_w": 256,
-                        "pixel_h": 128,
-                        "max_current_a": 3.8,
-                        "refresh_rate_hz": 3840,
-                    },
-                },
-                {
-                    "category": "module",
-                    "code": "M-P2-IN",
-                    "name": "LED Module P2 Indoor",
-                    "environment": "indoor",
-                    "unit": "pcs",
-                    "unit_price": 520000,
-                    "spec_json": {
-                        "pitch": "P2",
-                        "width_mm": 320,
-                        "height_mm": 160,
-                        "pixel_w": 160,
-                        "pixel_h": 80,
-                        "max_current_a": 3.8,
-                        "refresh_rate_hz": 3840,
-                    },
-                },
-                {
-                    "category": "module",
-                    "code": "M-P2.5-IN",
-                    "name": "LED Module P2.5 Indoor",
-                    "environment": "indoor",
-                    "unit": "pcs",
-                    "unit_price": 420000,
-                    "spec_json": {
-                        "pitch": "P2.5",
-                        "width_mm": 320,
-                        "height_mm": 160,
-                        "pixel_w": 128,
-                        "pixel_h": 64,
-                        "max_current_a": 3.5,
-                        "refresh_rate_hz": 3840,
-                    },
-                },
-                {
-                    "category": "module",
-                    "code": "M-P3-IN",
-                    "name": "LED Module P3 Indoor",
-                    "environment": "indoor",
-                    "unit": "pcs",
-                    "unit_price": 330000,
-                    "spec_json": {
-                        "pitch": "P3",
-                        "width_mm": 192,
-                        "height_mm": 192,
-                        "pixel_w": 64,
-                        "pixel_h": 64,
-                        "max_current_a": 2.8,
-                        "refresh_rate_hz": 3840,
-                    },
-                },
-                {
-                    "category": "module",
-                    "code": "M-P4-OUT",
-                    "name": "LED Module P4 Outdoor",
-                    "environment": "outdoor",
-                    "unit": "pcs",
-                    "unit_price": 510000,
-                    "spec_json": {
-                        "pitch": "P4",
-                        "width_mm": 320,
-                        "height_mm": 160,
-                        "pixel_w": 80,
-                        "pixel_h": 40,
-                        "max_current_a": 4.2,
-                        "refresh_rate_hz": 1920,
-                    },
-                },
-                {
-                    "category": "module",
-                    "code": "M-P5-OUT",
-                    "name": "LED Module P5 Outdoor",
-                    "environment": "outdoor",
-                    "unit": "pcs",
-                    "unit_price": 450000,
-                    "spec_json": {
-                        "pitch": "P5",
-                        "width_mm": 320,
-                        "height_mm": 160,
-                        "pixel_w": 64,
-                        "pixel_h": 32,
-                        "max_current_a": 3.6,
-                        "refresh_rate_hz": 1920,
-                    },
-                },
-                {
-                    "category": "module",
-                    "code": "M-P10-OUT",
-                    "name": "LED Module P10 Outdoor",
-                    "environment": "outdoor",
-                    "unit": "pcs",
-                    "unit_price": 390000,
-                    "spec_json": {
-                        "pitch": "P10",
-                        "width_mm": 320,
-                        "height_mm": 160,
-                        "pixel_w": 32,
-                        "pixel_h": 16,
-                        "max_current_a": 3.2,
-                        "refresh_rate_hz": 1920,
-                    },
-                },
-                {
-                    "category": "module",
-                    "code": "M-P2.5-OUT",
-                    "name": "LED Module P2.5 Outdoor",
-                    "environment": "outdoor",
-                    "unit": "pcs",
-                    "unit_price": 580000,
-                    "spec_json": {
-                        "pitch": "P2.5",
-                        "width_mm": 320,
-                        "height_mm": 160,
-                        "pixel_w": 128,
-                        "pixel_h": 64,
-                        "max_current_a": 4.8,
-                        "refresh_rate_hz": 3840,
-                    },
-                },
-                # Power supplies
-                {
-                    "category": "power",
-                    "code": "PS-5V40A",
-                    "name": "Power Supply 5V40A",
-                    "environment": "both",
-                    "unit": "pcs",
-                    "unit_price": 290000,
-                    "spec_json": {"voltage": 5, "max_current_a": 40},
-                },
-                {
-                    "category": "power",
-                    "code": "PS-5V60A",
-                    "name": "Power Supply 5V60A",
-                    "environment": "both",
-                    "unit": "pcs",
-                    "unit_price": 410000,
-                    "spec_json": {"voltage": 5, "max_current_a": 60},
-                },
-                # Receiving cards
-                {
-                    "category": "card",
-                    "code": "CARD-NOVA-MRV336",
-                    "name": "Novastar MRV336",
-                    "environment": "both",
-                    "unit": "pcs",
-                    "unit_price": 1450000,
-                    "spec_json": {"brand": "Novastar", "capacity_pixels": 650000},
-                },
-                {
-                    "category": "card",
-                    "code": "CARD-HD-R712",
-                    "name": "HD R712",
-                    "environment": "both",
-                    "unit": "pcs",
-                    "unit_price": 950000,
-                    "spec_json": {"brand": "HD", "capacity_pixels": 450000},
-                },
-                {
-                    "category": "card",
-                    "code": "CARD-LINSN-RV908",
-                    "name": "Linsn RV908",
-                    "environment": "both",
-                    "unit": "pcs",
-                    "unit_price": 1050000,
-                    "spec_json": {"brand": "Linsn", "capacity_pixels": 520000},
-                },
-                # Video processors
-                {
-                    "category": "processor",
-                    "code": "VP-MID",
-                    "name": "Video Processor Mid Range",
-                    "environment": "both",
-                    "unit": "pcs",
-                    "unit_price": 16500000,
-                    "spec_json": {"min_pixels": 0, "max_pixels": 1300000, "tier": "mid"},
-                },
-                {
-                    "category": "processor",
-                    "code": "VP-HIGH",
-                    "name": "Video Processor High End",
-                    "environment": "both",
-                    "unit": "pcs",
-                    "unit_price": 28900000,
-                    "spec_json": {"min_pixels": 2300001, "max_pixels": 10000000, "tier": "high"},
-                },
-                # Frame options
-                {
-                    "category": "frame",
-                    "code": "FRAME-ALU-CAST",
-                    "name": "Cabinet Nhom Duc",
-                    "environment": "both",
-                    "unit": "m2",
-                    "unit_price": 2100000,
-                    "spec_json": {"type": "Cabinet nhom duc"},
-                },
-                {
-                    "category": "frame",
-                    "code": "FRAME-STEEL-ALU",
-                    "name": "Khung Sat Op Alu",
-                    "environment": "both",
-                    "unit": "m2",
-                    "unit_price": 1250000,
-                    "spec_json": {"type": "Khung sat op alu"},
-                },
-                # Services
-                {
-                    "category": "service",
-                    "code": "SERVICE-INSTALL",
-                    "name": "Thi cong lap dat",
-                    "environment": "both",
-                    "unit": "m2",
-                    "unit_price": 350000,
-                    "spec_json": {},
-                },
-                {
-                    "category": "service",
-                    "code": "SERVICE-TRANSPORT",
-                    "name": "Van chuyen",
-                    "environment": "both",
-                    "unit": "job",
-                    "unit_price": 1500000,
-                    "spec_json": {},
-                },
-            ]
-
-            conn.executemany(
-                """
-                INSERT OR IGNORE INTO products(category, code, name, environment, unit, unit_price, spec_json)
-                VALUES(:category, :code, :name, :environment, :unit, :unit_price, :spec_json)
-                """,
-                [
-                    {
-                        **item,
-                        "spec_json": json.dumps(item["spec_json"], ensure_ascii=True),
-                    }
-                    for item in products
-                ],
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS lookup_values (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category TEXT NOT NULL,
+                code TEXT NOT NULL,
+                name TEXT NOT NULL,
+                target_field TEXT NOT NULL DEFAULT '',
+                extra_json TEXT NOT NULL DEFAULT '{}',
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(category, code)
             )
-            conn.commit()
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_lookup_category ON lookup_values(category)"
+        )
+
 
     def _row_to_dict(self, row: sqlite3.Row) -> Dict[str, Any]:
         data = dict(row)
@@ -493,7 +249,7 @@ class DBManager:
             conn.execute(
                 """
                 UPDATE products 
-                SET name = ?, category = ?, unit = ?, unit_price = ?, supplier = ?, updated_at = CURRENT_TIMESTAMP 
+                SET name = ?, category = ?, unit = ?, unit_price = ?, supplier = ?, environment = ?, spec_json = ?, updated_at = CURRENT_TIMESTAMP 
                 WHERE code = ?
                 """,
                 (
@@ -502,6 +258,8 @@ class DBManager:
                     product_data.get("unit", "pcs"),
                     float(product_data.get("unit_price", 0)),
                     product_data.get("supplier", ""),
+                    product_data.get("environment", "both"),
+                    json.dumps(product_data.get("spec_json", {}), ensure_ascii=True),
                     code,
                 ),
             )
@@ -514,6 +272,54 @@ class DBManager:
                 (float(unit_price), code),
             )
             conn.commit()
+
+    def save_lookup_records(
+        self,
+        category: str,
+        records: List[Dict[str, Any]],
+        target_field: str = "",
+    ) -> int:
+        """Lưu hoặc cập nhật danh sách bản ghi lookup quét từ API vào database."""
+        count = 0
+        with self._connect() as conn:
+            for item in records:
+                code = str(item.get("code") or item.get("ma") or "")
+                name = str(item.get("name") or item.get("ten") or code)
+                t_field = str(item.get("target_field") or target_field or "")
+                extra = {
+                    k: v
+                    for k, v in item.items()
+                    if k not in {"code", "name", "target_field", "category"}
+                }
+                conn.execute(
+                    """
+                    INSERT INTO lookup_values (category, code, name, target_field, extra_json, updated_at)
+                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(category, code) DO UPDATE SET
+                        name = excluded.name,
+                        target_field = excluded.target_field,
+                        extra_json = excluded.extra_json,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (category, code, name, t_field, json.dumps(extra, ensure_ascii=True)),
+                )
+                count += 1
+            conn.commit()
+        return count
+
+    def get_lookup_records(self, category: str) -> List[Dict[str, Any]]:
+        """Lấy danh sách các giá trị lookup theo phân loại từ database."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM lookup_values WHERE category = ? ORDER BY code",
+                (category,),
+            ).fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["extra_data"] = json.loads(d.pop("extra_json", "{}"))
+            result.append(d)
+        return result
 
     def get_company_profile(self) -> Dict[str, Any]:
         with self._connect() as conn:
